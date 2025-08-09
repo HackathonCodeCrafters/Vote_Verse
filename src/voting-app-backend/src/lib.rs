@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use candid::{CandidType, Principal};
 use ic_cdk::{api::time, query, update};
 use serde::{Deserialize, Serialize};
-
+use ic_llm::{Model}; // Import Model enum & prompt function
 
 use ic_cdk::api;
 use sha2::{Digest, Sha256};
@@ -278,6 +278,11 @@ fn get_proposal_by_user_id(user_id: String) -> Vec<Proposal> {
 #[query]
 fn get_users() -> Vec<User> {
     STATE.with(|state| state.borrow().users.values().cloned().collect())
+}
+
+#[update]
+async fn prompting(prompt: String) -> String {
+    ic_llm::prompt(Model::Llama3_1_8B, prompt).await
 }
 
 #[update]
