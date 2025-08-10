@@ -146,6 +146,86 @@ fn add_proposal(title: String, description: String, image_url: Option<String>, d
 }
 
 
+#[update]
+async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<String>, duration_days: u32, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>) -> String {
+    // let mut owned_string = r#"create a voting proposal title, description and full_description only with return as only json like this
+    //     {
+    //         "title": title,
+    //         "description": description,
+    //         "full_description": fulldescription
+    //     }
+    //     "#.to_string();
+
+    // // Append the user's prompt
+    // owned_string.push_str(&prompt_payload);
+
+    // Title
+    let title_prompt_owned_string = format!(
+    "You are a proposal title generator. 
+     Respond ONLY with a single plain text title (no lists, no extra text) for: {}",
+    prompt_payload
+    );
+
+
+    let title = ic_llm::prompt(Model::Llama3_1_8B, title_prompt_owned_string).await;
+
+    // Description
+    let description_prompt_owned_string = format!(
+    "Generate ONE concise description for a voting proposal about: {}. 
+     Respond ONLY with that description, nothing else.",
+    prompt_payload
+    );
+
+
+    let description = ic_llm::prompt(Model::Llama3_1_8B, description_prompt_owned_string).await;
+
+
+    // Full Description
+    let full_description_prompt_owned_string = format!(
+    "Generate ONE detailed paragraph for a voting proposal about: {}. 
+     Do NOT include bullet points or lists, just a single coherent paragraph.",
+    prompt_payload
+    );
+
+
+    let full_description = ic_llm::prompt(Model::Llama3_1_8B, full_description_prompt_owned_string).await;
+
+
+
+    STATE.with(|state| {
+        let mut s = state.borrow_mut();
+
+        let id = generate_deterministic_id();
+        let now = time() / 1_000_000_000; 
+
+        let time_left = Some(format!("{} days", duration_days));
+
+        let proposal = Proposal {
+            id : id.clone(),
+            title,
+            description,
+            image_url,
+            yes_votes: 0,
+            no_votes: 0,
+            created_at: now,
+            duration_days,
+            time_left,
+            status: None,
+            total_voters: None,
+            full_description: Some(full_description),
+            image,
+            votes: Some(Votes { yes: 0, no: 0 }),
+            author,
+            category,
+            discussions: None,
+            voters: HashSet::new(),
+            user_id,
+        };
+
+        s.proposals.insert(id.clone(), proposal);
+        id
+    })
+}
 
 #[derive(CandidType, Deserialize)]
 pub enum VoteChoice {
