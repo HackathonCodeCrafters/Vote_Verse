@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use candid::{CandidType, Principal};
 use ic_cdk::{api::time, query, update};
 use serde::{Deserialize, Serialize};
-
+use ic_llm::{Model}; // Import Model enum & prompt function
 
 use ic_cdk::api;
 use sha2::{Digest, Sha256};
@@ -53,11 +53,24 @@ struct Proposal {
     pub user_id: Option<String>, 
 }
 
+#[derive(CandidType, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct User {
+    pub id: String,
+    pub image_url: Option<String>,
+    pub fullname: String,
+    pub email: String,
+    pub location: Option<String>,
+    pub website: Option<String>,
+    pub bio: Option<String>,
+}
+
 
 #[derive(Default, CandidType, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct State {
     proposals: HashMap<String, Proposal>,
+    users: HashMap<String, User>,
 }
 
 thread_local! {
@@ -261,5 +274,37 @@ fn get_proposal_by_user_id(user_id: String) -> Vec<Proposal> {
     })
 }
 
+
+#[query]
+fn get_users() -> Vec<User> {
+    STATE.with(|state| state.borrow().users.values().cloned().collect())
+}
+
+#[update]
+async fn prompting(prompt: String) -> String {
+    ic_llm::prompt(Model::Llama3_1_8B, prompt).await
+}
+
+#[update]
+fn create_profile(image_url: Option<String>, fullname: String, email: String, location: Option<String>, website: Option<String>, bio: Option<String>) -> String {
+    STATE.with(|state| {
+        let mut s = state.borrow_mut();
+
+        let id = generate_deterministic_id();
+
+        let user = User {
+            id : id.clone(),
+            image_url: image_url,
+            fullname: fullname,
+            email: email,
+            location: location,
+            website: website,
+            bio: bio,
+        };
+
+        s.users.insert(id.clone(), user);
+        id
+    })
+}
 
 

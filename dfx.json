@@ -1,6 +1,20 @@
 {
   "canisters": {
+    "llm": {
+      "candid": "https://github.com/dfinity/llm/releases/latest/download/llm-canister-ollama.did",
+      "type": "custom",
+      "specified_id": "w36hm-eqaaa-aaaal-qr76a-cai",
+      "remote": {
+        "id": {
+          "ic": "w36hm-eqaaa-aaaal-qr76a-cai"
+        }
+      },
+      "wasm": "https://github.com/dfinity/llm/releases/latest/download/llm-canister-ollama.wasm"
+    },
     "voting-app-backend": {
+      "dependencies": [
+        "llm"
+      ],
       "candid": "src/voting-app-backend/voting-app-backend.did",
       "package": "voting-app-backend",
       "type": "rust"
