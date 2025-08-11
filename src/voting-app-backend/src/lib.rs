@@ -53,6 +53,13 @@ struct Proposal {
     pub user_id: Option<String>, 
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct GeneratedProposalDescription {
+    pub title: String,
+    pub description: String,
+    pub full_description: String,
+}
+
 #[derive(CandidType, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct User {
@@ -146,53 +153,28 @@ fn add_proposal(title: String, description: String, image_url: Option<String>, d
 }
 
 
+fn parse_generated_proposal(json_str: &str) -> Result<GeneratedProposalDescription, serde_json::Error> {
+    serde_json::from_str(json_str)
+}
+
 #[update]
 async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<String>, duration_days: u32, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>) -> String {
-    // let mut owned_string = r#"create a voting proposal title, description and full_description only with return as only json like this
-    //     {
-    //         "title": title,
-    //         "description": description,
-    //         "full_description": fulldescription
-    //     }
-    //     "#.to_string();
+    let mut owned_string = r#"create a voting proposal title, description and full_description only with return as only json like this
+        {
+            "title": title,
+            "description": description,
+            "full_description": fulldescription
+        }
+        "#.to_string();
 
-    // // Append the user's prompt
-    // owned_string.push_str(&prompt_payload);
+    // Append the user's prompt
+    owned_string.push_str(&prompt_payload);
 
-    // Title
-    let title_prompt_owned_string = format!(
-    "You are a proposal title generator. 
-     Respond ONLY with a single plain text title (no lists, no extra text) for: {}",
-    prompt_payload
-    );
+    let generated_description = ic_llm::prompt(Model::Llama3_1_8B, owned_string).await;
 
-
-    let title = ic_llm::prompt(Model::Llama3_1_8B, title_prompt_owned_string).await;
-
-    // Description
-    let description_prompt_owned_string = format!(
-    "Generate ONE concise description for a voting proposal about: {}. 
-     Respond ONLY with that description, nothing else.",
-    prompt_payload
-    );
-
-
-    let description = ic_llm::prompt(Model::Llama3_1_8B, description_prompt_owned_string).await;
-
-
-    // Full Description
-    let full_description_prompt_owned_string = format!(
-    "Generate ONE detailed paragraph for a voting proposal about: {}. 
-     Do NOT include bullet points or lists, just a single coherent paragraph.",
-    prompt_payload
-    );
-
-
-    let full_description = ic_llm::prompt(Model::Llama3_1_8B, full_description_prompt_owned_string).await;
-
-
-
-    STATE.with(|state| {
+    match parse_generated_proposal(&generated_description) {
+        Ok(generated) => 
+        STATE.with(|state| {
         let mut s = state.borrow_mut();
 
         let id = generate_deterministic_id();
@@ -202,8 +184,8 @@ async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<Stri
 
         let proposal = Proposal {
             id : id.clone(),
-            title,
-            description,
+            title: generated.title,
+            description: generated.description,
             image_url,
             yes_votes: 0,
             no_votes: 0,
@@ -212,7 +194,7 @@ async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<Stri
             time_left,
             status: None,
             total_voters: None,
-            full_description: Some(full_description),
+            full_description: Some(generated.full_description),
             image,
             votes: Some(Votes { yes: 0, no: 0 }),
             author,
@@ -224,7 +206,13 @@ async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<Stri
 
         s.proposals.insert(id.clone(), proposal);
         id
-    })
+    }),
+        Err(e) =>  {
+            eprintln!("Failed to parse: {}", e);
+            let error_result = e.to_string();
+            return error_result; // or some default String,
+        }
+    }
 }
 
 #[derive(CandidType, Deserialize)]
