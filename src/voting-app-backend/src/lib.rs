@@ -159,7 +159,7 @@ fn parse_generated_proposal(json_str: &str) -> Result<GeneratedProposalDescripti
 
 #[update]
 async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<String>, duration_days: u32, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>) -> String {
-    let mut owned_string = r#"create a voting proposal title, description and full_description only with return as only json like this
+    let mut owned_string = r#"you are a voting proposal generator to create a json of title, description and full_description only with return as only json like this
         {
             "title": title,
             "description": description,
@@ -175,6 +175,7 @@ async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<Stri
     match parse_generated_proposal(&generated_description) {
         Ok(generated) => 
         STATE.with(|state| {
+
         let mut s = state.borrow_mut();
 
         let id = generate_deterministic_id();
