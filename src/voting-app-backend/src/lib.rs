@@ -159,18 +159,26 @@ fn parse_generated_proposal(json_str: &str) -> Result<GeneratedProposalDescripti
 
 #[update]
 async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<String>, duration_days: u32, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>) -> String {
-    let mut owned_string = r#"you are a voting proposal generator to create a json of title, description and full_description only with return as only json like this
-        {
-            "title": title,
-            "description": description,
-            "full_description": fulldescription
-        }
+    let mut owned_string = r#"
+            You are a voting proposal generator. Your task is to output ONLY a valid JSON object with the following structure:
+
+            {
+                "title": "<short and concise title of the proposal>",
+                "description": "<brief summary of the proposal>",
+                "full_description": "<detailed explanation of the proposal>"
+            }
+
+            Requirements:
+            - Output must be valid JSON.
+            - Do not include any text outside the JSON.
+            - Do not include code fences, comments, or explanations.
+            - All values must be strings.
         "#.to_string();
 
     // Append the user's prompt
     owned_string.push_str(&prompt_payload);
 
-    let generated_description = ic_llm::prompt(Model::Llama3_1_8B, owned_string).await;
+    let generated_description = ic_llm::prompt(Model::Qwen3_32B, owned_string).await;
 
     match parse_generated_proposal(&generated_description) {
         Ok(generated) => 
