@@ -53,6 +53,13 @@ struct Proposal {
     pub user_id: Option<String>, 
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct GeneratedProposalDescription {
+    pub title: String,
+    pub description: String,
+    pub full_description: String,
+}
+
 #[derive(CandidType, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct User {
@@ -146,6 +153,68 @@ fn add_proposal(title: String, description: String, image_url: Option<String>, d
 }
 
 
+fn parse_generated_proposal(json_str: &str) -> Result<GeneratedProposalDescription, serde_json::Error> {
+    serde_json::from_str(json_str)
+}
+
+#[update]
+async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<String>, duration_days: u32, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>) -> String {
+    let mut owned_string = r#"you are a voting proposal generator to create a json of title, description and full_description only with return as only json like this
+        {
+            "title": title,
+            "description": description,
+            "full_description": fulldescription
+        }
+        "#.to_string();
+
+    // Append the user's prompt
+    owned_string.push_str(&prompt_payload);
+
+    let generated_description = ic_llm::prompt(Model::Llama3_1_8B, owned_string).await;
+
+    match parse_generated_proposal(&generated_description) {
+        Ok(generated) => 
+        STATE.with(|state| {
+
+        let mut s = state.borrow_mut();
+
+        let id = generate_deterministic_id();
+        let now = time() / 1_000_000_000; 
+
+        let time_left = Some(format!("{} days", duration_days));
+
+        let proposal = Proposal {
+            id : id.clone(),
+            title: generated.title,
+            description: generated.description,
+            image_url,
+            yes_votes: 0,
+            no_votes: 0,
+            created_at: now,
+            duration_days,
+            time_left,
+            status: None,
+            total_voters: None,
+            full_description: Some(generated.full_description),
+            image,
+            votes: Some(Votes { yes: 0, no: 0 }),
+            author,
+            category,
+            discussions: None,
+            voters: HashSet::new(),
+            user_id,
+        };
+
+        s.proposals.insert(id.clone(), proposal);
+        id
+    }),
+        Err(e) =>  {
+            eprintln!("Failed to parse: {}", e);
+            let error_result = e.to_string();
+            return error_result; // or some default String,
+        }
+    }
+}
 
 #[derive(CandidType, Deserialize)]
 pub enum VoteChoice {
