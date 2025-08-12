@@ -243,7 +243,8 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
           : proposalData.image_url
           ? [proposalData.image_url]
           : ["/placeholder.svg"],
-        proposalData.author ? [proposalData.author] : []
+        proposalData.author ? [proposalData.author] : [],
+        []
       );
 
       console.log("New Proposal created with ID:", proposalId);
