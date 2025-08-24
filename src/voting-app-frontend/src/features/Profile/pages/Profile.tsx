@@ -13,6 +13,7 @@ import {
 import { useState } from "react";
 import ProfileInformation from "../components/ProfileInformation";
 import type { Profile } from "../types/profile";
+import { createProfileAPI } from "@/ic/api";
 
 interface ProfilePageProps {
   darkMode?: boolean;
@@ -58,12 +59,26 @@ export default function ProfilePage({
     activityTracking: true,
   });
 
-  const handleSaveProfile = () => {
-    if (onUpdateProfile) {
-      onUpdateProfile(profileData);
-    }
+  // Edit Profile Handlers
+  const handleSaveProfile = async () => {
+  try {
+    setIsEditing(false); 
+    const newId = await createProfileAPI({
+      image_url: profileData.avatar || null,
+      fullname: profileData.name ?? "",
+      email: profileData.email,
+      location: profileData.location || null,
+      website: profileData.website || null,
+      bio: profileData.bio || null,
+    });
+
+    setProfileData((prev) => ({ ...prev, id: newId, updatedAt: new Date().toISOString() }));
+
     setIsEditing(false);
-  };
+  } catch (e:any) {
+    console.error(e.message ?? "Failed to create profile");
+  }
+};
 
   const stats = [
     {
