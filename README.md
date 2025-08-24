@@ -1,6 +1,26 @@
-<img src="/src/voting-app-frontend/src/assets/img/logo_vote_verse.png" alt="VoteVerse" width="150" />
+<p align="center">
+  <img src="/src/voting-app-frontend/src/assets/img/logo_vote_verse.png" alt="VoteVerse" width="220" />
+</p>
 
-# `VoteVerse`
+<p align="center">
+  <a href="https://www.rust-lang.org/">
+    <img src="https://img.shields.io/badge/Rust-1?logo=rust&logoColor=white&label=Rust&color=000000" alt="Rust" />
+  </a>
+  <a href="https://internetcomputer.org/">
+    <img src="https://img.shields.io/badge/Powered%20By-Internet%20Computer-ff3a5e?logo=internet-computer&logoColor=white" alt="Internet Computer" />
+  </a>
+  <a href="https://react.dev/">
+    <img src="https://img.shields.io/badge/React-18+-61dafb?logo=react&logoColor=white" alt="React" />
+  </a>
+  <a href="https://tailwindcss.com/">
+    <img src="https://img.shields.io/badge/TailwindCSS-3.x-38bdf8?logo=tailwindcss&logoColor=white" alt="TailwindCSS" />
+  </a>
+ <a href="#license">
+  <img src="https://img.shields.io/badge/License-ICCSL-blueviolet" alt="License ICCSL" />
+</a>
+</p>
+
+<h1 align="center" style="font-size: 4rem;">VoteVerse</h1>
 
 Welcome to your new `VoteVerse` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
 
@@ -83,11 +103,11 @@ dfx canister call voting-app-backend add_proposal '("Judul", "Deskripsi", null, 
 dfx canister call voting-app-backend add_proposal '(
 "Judul",
 "Deskripsi",
-opt "https://foo.bar/img.png", 
-14, 
-opt "Full Deskripsi", 
-opt "Categori", 
-opt "iVBORw0KGgoAAAANSUhEUgAABVgAAAFuCAYAAA", 
+opt "https://foo.bar/img.png",
+14,
+opt "Full Deskripsi",
+opt "Categori",
+opt "iVBORw0KGgoAAAANSUhEUgAABVgAAAFuCAYAAA",
 null,
 opt "user"
 )'
@@ -130,7 +150,8 @@ dfx canister call voting-app-backend get_proposal_stats
 dfx canister call voting-app-backend delete_proposal '(1)'
 ```
 
-### get proposal by userid 
+### get proposal by userid
+
 ```bash
 dfx canister call voting-app-backend get_proposal_by_user_id  '("user")'
 ```
