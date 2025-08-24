@@ -357,6 +357,11 @@ fn get_users() -> Vec<User> {
     STATE.with(|state| state.borrow().users.values().cloned().collect())
 }
 
+#[query]
+fn get_users_by_id(user_id: String) -> Option<User> {
+    STATE.with(|state| state.borrow().users.get(&user_id).cloned())
+}
+
 #[update]
 async fn prompting(prompt: String) -> String {
     ic_llm::prompt(Model::Llama3_1_8B, prompt).await
