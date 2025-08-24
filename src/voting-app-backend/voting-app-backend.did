@@ -46,7 +46,5 @@ service : {
   delete_proposal: (text) -> (VoteResult);
   get_proposal_by_user_id: (text) -> (vec Proposal) query;
   create_profile: (opt text, text, text, opt text, opt text, opt text) -> (text);
-  get_users: () -> (vec User) query;
-  get_users_by_id: (text) -> (opt User) query;
   add_proposal_with_prompt:(text, text, nat32, text, text, text, text)-> (text);
 }
