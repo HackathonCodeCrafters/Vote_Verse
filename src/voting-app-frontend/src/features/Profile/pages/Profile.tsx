@@ -10,9 +10,19 @@ import {
   Settings,
   Shield,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ProfileInformation from "../components/ProfileInformation";
 import type { Profile } from "../types/profile";
+import { 
+  createProfileAPI,
+  persistProfileId,
+  loadPersistedProfileId,
+  getUserByIdAPI,
+  persistProfileCache,
+  loadPersistedProfileCache, 
+} from "@/ic/api";
+
+import { useDarkMode } from "../../../context/DarkModeContext";
 
 interface ProfilePageProps {
   darkMode?: boolean;
@@ -24,18 +34,42 @@ interface ProfilePageProps {
 }
 
 export default function ProfilePage({
-  darkMode = false,
   principal = "rdmx6-jaaaa-aaaah-qcaiq-cai",
   userName = "John Doe",
   userAvatar,
   votingPower = 1250,
   onUpdateProfile,
 }: ProfilePageProps) {
+  const { darkMode } = useDarkMode();
   const [isEditing, setIsEditing] = useState(false);
   const [showPrincipal, setShowPrincipal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+// ---------- THEME HELPERS ----------
+  const bgPage = darkMode ? "bg-gray-900" : "bg-gray-50";
+  const textTitle = darkMode ? "text-white" : "text-gray-900";
+  const textBody = darkMode ? "text-gray-300" : "text-gray-700";
+  const textMuted = darkMode ? "text-gray-400" : "text-gray-600";
+  const borderCard = darkMode ? "border-gray-700" : "border-gray-200";
+  const bgCard = darkMode ? "bg-gray-800" : "bg-white";
+  const bgSubtle = darkMode ? "bg-gray-700" : "bg-gray-100";
+  const textIcon = darkMode ? "text-gray-300" : "text-gray-600";
+  const cardClass = `rounded-lg border ${borderCard} ${bgCard} p-6`;
+  const pill = (tone: "blue" | "green" | "purple" | "orange") => {
+    const map: Record<string, string> = {
+      blue: darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800",
+      green: darkMode ? "bg-green-900 text-green-300" : "bg-green-100 text-green-800",
+      purple: darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800",
+      orange: darkMode ? "bg-orange-900 text-orange-300" : "bg-orange-100 text-orange-800",
+    };
+    return `px-2 py-1 text-xs font-medium rounded-full ${map[tone]}`;
+  };
 
   // Profile form state
-  const [profileData, setProfileData] = useState<Profile>({
+  const [profileData, setProfileData] = useState<Profile>(() => {
+  // default dummy…
+  const base: Profile = {
     id: "user-1",
     name: userName,
     username: userName.toLowerCase().replace(/\s+/g, ""),
@@ -47,7 +81,26 @@ export default function ProfilePage({
     avatar: userAvatar || "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  });
+  };
+
+  if (typeof window !== "undefined") {
+    const cached = loadPersistedProfileCache();
+    if (cached) {
+      return {
+        ...base,
+        id: cached.id,
+        name: cached.fullname,
+        username: cached.fullname,
+        email: cached.email,
+        bio: cached.bio || base.bio,
+        avatar: cached.image_url || base.avatar,
+        location: cached.location || base.location,
+        website: cached.website || base.website,
+      };
+    }
+  }
+  return base;
+});
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -58,12 +111,104 @@ export default function ProfilePage({
     activityTracking: true,
   });
 
-  const handleSaveProfile = () => {
-    if (onUpdateProfile) {
-      onUpdateProfile(profileData);
+  // Edit Profile Handlers
+  const handleSaveProfile = async () => {
+
+  setSaving(true); setErrorMsg(null);
+  try {
+
+    const newId = await createProfileAPI({
+      image_url: profileData.avatar || null,
+      fullname: profileData.name ?? "",
+      email: profileData.email,
+      location: profileData.location || null,
+      website: profileData.website || null,
+      bio: profileData.bio || null,
+    });
+
+    persistProfileId(newId);
+
+    // Fetch from canister & update + cache
+    const fresh = await getUserByIdAPI(newId);
+    if (fresh) {
+      persistProfileCache({
+        id: fresh.id,
+        fullname: fresh.fullname,
+        email: fresh.email,
+        image_url: fresh.image_url,
+        location: fresh.location,
+        website: fresh.website,
+        bio: fresh.bio,
+      });
+
+    setProfileData((prev) => ({
+      ...prev,
+      id: fresh.id,
+        name: fresh.fullname,
+        username: fresh.fullname,
+        email: fresh.email,
+        bio: fresh.bio || prev.bio,
+        avatar: fresh.image_url || prev.avatar,
+        location: fresh.location || prev.location,
+        website: fresh.website || prev.website,
+        updatedAt: new Date().toISOString(),
+    }));
+
+    } else {
+      // fallback if null
+      setProfileData((prev) => ({ ...prev, id: newId, updatedAt: new Date().toISOString() }));
     }
+
+    setCreatedId(newId);
     setIsEditing(false);
-  };
+  } catch (err: any) {
+    setErrorMsg(err?.message ?? "Failed to create profile");
+  } finally {
+    setSaving(false);
+  }
+};
+
+  useEffect(() => {
+  const id = loadPersistedProfileId();
+  if (!id) {
+    console.log("[hydrate] no vv_profile_id in localStorage");
+    return;
+  }
+
+  (async () => {
+    try {
+      console.log("[hydrate] loading user by id:", id);
+      const u = await getUserByIdAPI(id);
+      console.log("[hydrate] canister user:", u);
+      if (!u) return;
+
+      persistProfileCache({
+        id: u.id,
+        fullname: u.fullname,
+        email: u.email,
+        image_url: u.image_url,
+        location: u.location,
+        website: u.website,
+        bio: u.bio,
+      });
+
+      setProfileData((prev) => ({
+        ...prev,
+        id: u.id,
+        name: u.fullname,
+        username: u.fullname,
+        email: u.email,
+        bio: u.bio || prev.bio,
+        avatar: u.image_url || prev.avatar,
+        location: u.location || prev.location,
+        website: u.website || prev.website,
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch (e) {
+      console.warn("[hydrate] failed:", e);
+    }
+  })();
+}, []);
 
   const stats = [
     {
@@ -75,7 +220,7 @@ export default function ProfilePage({
     { label: "Proposals Voted", value: "47", icon: Activity, color: "green" },
     { label: "Proposals Created", value: "3", icon: Edit3, color: "purple" },
     { label: "Community Rank", value: "#142", icon: Shield, color: "orange" },
-  ];
+  ] as const;
 
   const settingsConfig = [
     {
@@ -103,7 +248,7 @@ export default function ProfilePage({
       label: "Activity Tracking",
       description: "Track your voting activity and statistics",
     },
-  ];
+  ] as const;
 
   const getColorClasses = (color: string) => {
     const colorMap = {
@@ -119,28 +264,16 @@ export default function ProfilePage({
   };
 
   return (
-    <div
-      className={`min-h-screen transition-colors duration-300 ${
-        darkMode ? "bg-gray-900" : "bg-gray-50"
-      }`}
-    >
+    <div className={`min-h-screen transition-colors duration-300 ${bgPage}`}>
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1
-            className={`text-3xl font-bold mb-2 ${
-              darkMode ? "text-white" : "text-gray-900"
-            }`}
-          >
-            Profile
-          </h1>
-          <p
-            className={`text-lg ${
-              darkMode ? "text-gray-400" : "text-gray-600"
-            }`}
-          >
-            Manage your account settings and preferences
-          </p>
+          <h1 className={`text-3xl font-bold mb-2 ${textTitle}`}>Profile</h1>
+          <p className={`text-lg ${textMuted}`}>Manage your account settings and preferences</p>
+
+          {saving && <p className={`mt-2 text-sm ${darkMode ? "text-blue-300" : "text-blue-700"}`}>Saving to ICP canister…</p>}
+          {createdId && <p className={`mt-2 text-sm ${darkMode ? "text-green-300" : "text-green-700"}`}>Profile ID: {createdId}</p>}
+          {errorMsg && <p className={`mt-2 text-sm ${darkMode ? "text-red-300" : "text-red-700"}`}>{errorMsg}</p>}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -149,67 +282,33 @@ export default function ProfilePage({
             {/* Profile Information Card */}
             <ProfileInformation
               profileData={profileData}
-              setProfileData={(data) => setProfileData(data)}
+              setProfileData={setProfileData}
               darkMode={darkMode}
               isEditing={isEditing}
               setIsEditing={setIsEditing}
               handleSaveProfile={handleSaveProfile}
+              saving={saving}
             />
 
             {/* Settings Card */}
-            <div
-              className={`rounded-lg border p-6 ${
-                darkMode
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-200"
-              }`}
-            >
+            <div className={cardClass}>
               <div className="flex items-center space-x-2 mb-6">
-                <Settings
-                  size={20}
-                  className={darkMode ? "text-white" : "text-gray-900"}
-                />
-                <h2
-                  className={`text-xl font-semibold ${
-                    darkMode ? "text-white" : "text-gray-900"
-                  }`}
-                >
-                  Notification Settings
-                </h2>
+                <Settings size={20} className={textTitle} />
+                <h2 className={`text-xl font-semibold ${textTitle}`}>Notification Settings</h2>
               </div>
 
               <div className="space-y-4">
                 {settingsConfig.map((setting) => (
-                  <div
-                    key={setting.key}
-                    className="flex items-center justify-between"
-                  >
+                  <div key={setting.key} className="flex items-center justify-between">
                     <div className="flex-1">
-                      <label
-                        className={`text-sm font-medium ${
-                          darkMode ? "text-gray-300" : "text-gray-700"
-                        }`}
-                      >
-                        {setting.label}
-                      </label>
-                      <p
-                        className={`text-xs ${
-                          darkMode ? "text-gray-500" : "text-gray-500"
-                        }`}
-                      >
-                        {setting.description}
-                      </p>
+                      <label className={`text-sm font-medium ${textBody}`}>{setting.label}</label>
+                      <p className={`text-xs ${textMuted}`}>{setting.description}</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={settings[setting.key as keyof typeof settings]}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            [setting.key]: e.target.checked,
-                          })
-                        }
+                        checked={(settings as any)[setting.key]}
+                        onChange={(e) => setSettings({ ...settings, [setting.key]: e.target.checked })}
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
@@ -223,57 +322,20 @@ export default function ProfilePage({
           {/* Right Column - Stats & Info */}
           <div className="space-y-6">
             {/* Statistics Card */}
-            <div
-              className={`rounded-lg border p-6 ${
-                darkMode
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <h2
-                className={`text-xl font-semibold mb-6 ${
-                  darkMode ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Statistics
-              </h2>
-
+            <div className={cardClass}>
+              <h2 className={`text-xl font-semibold mb-6 ${textTitle}`}>Statistics</h2>
               <div className="space-y-4">
                 {stats.map((stat, index) => {
                   const IconComponent = stat.icon;
                   return (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between"
-                    >
+                    <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            darkMode ? "bg-gray-700" : "bg-gray-100"
-                          }`}
-                        >
-                          <IconComponent
-                            size={16}
-                            className={
-                              darkMode ? "text-gray-300" : "text-gray-600"
-                            }
-                          />
+                        <div className={`p-2 rounded-lg ${bgSubtle}`}>
+                          <IconComponent size={16} className={textIcon} />
                         </div>
-                        <span
-                          className={`text-sm ${
-                            darkMode ? "text-gray-300" : "text-gray-700"
-                          }`}
-                        >
-                          {stat.label}
-                        </span>
+                        <span className={`text-sm ${textBody}`}>{stat.label}</span>
                       </div>
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded-full ${getColorClasses(
-                          stat.color
-                        )}`}
-                      >
-                        {stat.value}
-                      </span>
+                      <span className={pill(stat.color)}>{stat.value}</span>
                     </div>
                   );
                 })}
@@ -281,58 +343,21 @@ export default function ProfilePage({
             </div>
 
             {/* Account Information Card */}
-            <div
-              className={`rounded-lg border p-6 ${
-                darkMode
-                  ? "bg-gray-800 border-gray-700"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <h2
-                className={`text-xl font-semibold mb-6 ${
-                  darkMode ? "text-white" : "text-gray-900"
-                }`}
-              >
-                Account Information
-              </h2>
-
+            <div className={cardClass}>
+              <h2 className={`text-xl font-semibold mb-6 ${textTitle}`}>Account Information</h2>
               <div className="space-y-4">
                 <div className="flex items-center space-x-3">
-                  <Calendar
-                    size={16}
-                    className={darkMode ? "text-gray-400" : "text-gray-500"}
-                  />
+                  <Calendar size={16} className={darkMode ? "text-gray-400" : "text-gray-500"} />
                   <div>
-                    <p
-                      className={`text-sm font-medium ${
-                        darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
-                    >
-                      Member Since
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        darkMode ? "text-gray-500" : "text-gray-500"
-                      }`}
-                    >
-                      {profileData.joinDate}
-                    </p>
+                    <p className={`text-sm font-medium ${textBody}`}>Member Since</p>
+                    <p className={`text-xs ${textMuted}`}>{profileData.joinDate}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <Shield
-                    size={16}
-                    className={darkMode ? "text-gray-400" : "text-gray-500"}
-                  />
+                  <Shield size={16} className={darkMode ? "text-gray-400" : "text-gray-500"} />
                   <div>
-                    <p
-                      className={`text-sm font-medium ${
-                        darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
-                    >
-                      Account Status
-                    </p>
+                    <p className={`text-sm font-medium ${textBody}`}>Account Status</p>
                     <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
                       Verified
                     </span>
@@ -340,67 +365,38 @@ export default function ProfilePage({
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <Lock
-                    size={16}
-                    className={darkMode ? "text-gray-400" : "text-gray-500"}
-                  />
+                  <Lock size={16} className={darkMode ? "text-gray-400" : "text-gray-500"} />
                   <div>
-                    <p
-                      className={`text-sm font-medium ${
-                        darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
-                    >
-                      Identity Provider
-                    </p>
-                    <p
-                      className={`text-xs ${
-                        darkMode ? "text-gray-500" : "text-gray-500"
-                      }`}
-                    >
-                      Internet Identity
-                    </p>
+                    <p className={`text-sm font-medium ${textBody}`}>Identity Provider</p>
+                    <p className={`text-xs ${textMuted}`}>Internet Identity</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Principal toggle */}
+              <div className="mt-4">
+                <button onClick={() => setShowPrincipal(!showPrincipal)} className="text-xs underline">
+                  {showPrincipal ? "Hide Principal" : "Show Principal"}
+                </button>
+                {showPrincipal && <p className={`mt-2 text-xs ${textBody}`}>{principal}</p>}
               </div>
             </div>
 
             {/* Security Alert */}
-            <div
-              className={`rounded-lg border p-4 ${
-                darkMode
-                  ? "bg-blue-900/20 border-blue-800"
-                  : "bg-blue-50 border-blue-200"
-              }`}
-            >
+            <div className={`rounded-lg border p-4 ${darkMode ? "bg-blue-900/20 border-blue-800" : "bg-blue-50 border-blue-200"}`}>
               <div className="flex items-start space-x-3">
-                <AlertCircle
-                  size={16}
-                  className={
-                    darkMode ? "text-blue-300 mt-0.5" : "text-blue-500 mt-0.5"
-                  }
-                />
+                <AlertCircle size={16} className={darkMode ? "text-blue-300 mt-0.5" : "text-blue-500 mt-0.5"} />
                 <div>
-                  <p
-                    className={`text-sm font-medium ${
-                      darkMode ? "text-blue-300" : "text-blue-800"
-                    }`}
-                  >
-                    Security Tip
-                  </p>
-                  <p
-                    className={`text-xs mt-1 ${
-                      darkMode ? "text-blue-400" : "text-blue-700"
-                    }`}
-                  >
-                    Keep your Internet Identity secure and never share your
-                    recovery phrases.
+                  <p className={`text-sm font-medium ${darkMode ? "text-blue-300" : "text-blue-800"}`}>Security Tip</p>
+                  <p className={`text-xs mt-1 ${darkMode ? "text-blue-400" : "text-blue-700"}`}>
+                    Keep your Internet Identity secure and never share your recovery phrases.
                   </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </div> 
     </div>
   );
 }
