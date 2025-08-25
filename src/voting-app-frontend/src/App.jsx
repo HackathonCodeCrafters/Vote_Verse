@@ -21,7 +21,7 @@ import SecurityPolicyPage from "./features/Footer/pages/SecurityPolicy.js";
 import TermsOfServicePage from "./features/Footer/pages/Terms.js";
 import HomePage from "./features/HomeLanding/pages/HomePage.tsx";
 import PricingPage from "./features/Pricing/pages/Pricing.js";
-import EnhancedProfilePage from "./features/Profile/pages/EnhancedProfile.tsx";
+import ProfilePage from "./features/Profile/pages/Profile";
 import ProposalDetailPage from "./features/Proposal/components/ProposalDetailPage";
 import CreateProposalPage from "./features/Proposal/pages/CreateProposalPage.tsx";
 import { useAuth } from "./hooks/useAuth";
@@ -244,11 +244,15 @@ function App() {
           }
         />
 
-        <Route
+        {/* <Route
           path="/profile"
           element={
             auth.isAuthenticated ? <EnhancedProfilePage /> : <Navigate to="/" />
           }
+        /> */}
+        <Route
+          path="/profile"
+          element={auth.isAuthenticated ? <ProfilePage /> : <Navigate to="/" />}
         />
 
         <Route

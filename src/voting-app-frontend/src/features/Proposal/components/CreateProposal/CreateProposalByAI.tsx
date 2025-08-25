@@ -97,13 +97,13 @@ export default function AgentAICard({ defaults, onCreated }: AgentAICardProps) {
       const payload = toDevJSONPayload(prompt);
 
       const returned = await backend.add_proposal_with_prompt(
-        payload, // <- bukan prompt mentah, tapi JSON string
-        Opt(image_url), // opt text -> [] | [value]
+        payload,
+        image_url,
         durationDays,
-        Opt(category),
-        Opt(image),
-        Opt(author),
-        Opt(user_id)
+        category,
+        image,
+        author,
+        user_id
       );
 
       const looksOk =

@@ -158,7 +158,7 @@ function ProfileInformation({
                 {showPrincipal ? (
                   <EyeOff className="w-3 h-3" />
                 ) : (
-                  <Eye className="w-3 h-3" />
+                  <Eye className="w-3ProfileInformation h-3" />
                 )}
               </button>
             </div>

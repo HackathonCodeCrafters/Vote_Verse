@@ -1,21 +1,15 @@
+import type { User as CanisterUser } from "../../../declarations/voting-app-backend/voting-app-backend.did";
 import { createBackendActor } from "./actor";
-import type {
-  User as CanisterUser,
-} from "../../../declarations/voting-app-backend/voting-app-backend.did";
 
 const opt = (v?: string | null): [] | [string] =>
   v && v.trim() !== "" ? [v] : [];
 
-const unopt = (o?: [] | [string]) =>
-  Array.isArray(o) && o.length ? o[0] : "";
+const unopt = (o?: [] | [string]) => (Array.isArray(o) && o.length ? o[0] : "");
 
 const unwrapOptNat64ToDateText = (o?: [] | [bigint]) => {
   if (!Array.isArray(o) || o.length === 0) return "";
   const n = o[0]; // bigint
-  const ms =
-    n >= 1_000_000_000_000_000n 
-      ? Number(n / 1_000_000n)
-      : Number(n); 
+  const ms = n >= 1_000_000_000_000_000n ? Number(n / 1_000_000n) : Number(n);
   try {
     return new Date(ms).toLocaleString();
   } catch {
@@ -47,17 +41,27 @@ export function persistProfileCache(data: {
   image_url: string;
   location: string;
   website: string;
-  bio: string
+  bio: string;
 }) {
-  try { localStorage.setItem("vv_profile_cache", JSON.stringify(data)); } catch {}
+  try {
+    localStorage.setItem("vv_profile_cache", JSON.stringify(data));
+  } catch {}
 }
-export function loadPersistedProfileCache():
-  | { id: string; fullname: string; email: string; image_url: string; location: string; website: string; bio: string }
-  | null {
+export function loadPersistedProfileCache(): {
+  id: string;
+  fullname: string;
+  email: string;
+  image_url: string;
+  location: string;
+  website: string;
+  bio: string;
+} | null {
   try {
     const raw = localStorage.getItem("vv_profile_cache");
     return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // -------------------- API calls --------------------
@@ -78,7 +82,7 @@ export async function createProfileAPI(params: {
     params.email,
     opt(params.location),
     opt(params.website),
-    opt(params.bio),
+    opt(params.bio)
   );
 
   return id; // string

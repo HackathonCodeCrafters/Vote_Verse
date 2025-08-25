@@ -1,10 +1,18 @@
 "use client";
 
 import { useAuth } from "@/hooks/useAuth";
+import { getUserByIdAPI, loadPersistedProfileId } from "@/ic/api";
 import Button from "@/shared/components/Button";
-import { ArrowLeft, ImageIcon, Trash2, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ImageIcon,
+  Trash2,
+  Upload,
+  User,
+} from "lucide-react";
 import type React from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet";
 import { useNavigate } from "react-router-dom";
 import { useDarkMode } from "../../../context/DarkModeContext";
@@ -18,6 +26,16 @@ interface CreateProposalPageProps {
   onCreateProposal: (proposal: any) => Promise<void>;
 }
 
+interface UserProfile {
+  id: string;
+  fullname: string;
+  email: string;
+  image_url: string | null;
+  location: string | null;
+  website: string | null;
+  bio: string | null;
+}
+
 export default function CreateProposalPage({
   onCreateProposal,
 }: CreateProposalPageProps) {
@@ -25,8 +43,13 @@ export default function CreateProposalPage({
   const { darkMode } = useDarkMode();
   const navigate = useNavigate();
 
+  const [hasProfile, setHasProfile] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
   const [formData, setFormData] = useState({
     principal: principal || "",
+    profileId: "",
     title: "",
     description: "",
     fullDescription: "",
@@ -57,6 +80,55 @@ export default function CreateProposalPage({
     { value: "14", label: "14 days" },
     { value: "30", label: "30 days" },
   ];
+
+  // Check if user has a profile and load profile data
+  const checkUserProfile = async () => {
+    setProfileLoading(true);
+    try {
+      const profileId = loadPersistedProfileId();
+      if (!profileId) {
+        setHasProfile(false);
+        setProfileLoading(false);
+        return;
+      }
+
+      const profile = await getUserByIdAPI(profileId);
+      if (profile) {
+        setHasProfile(true);
+        setUserProfile(profile);
+        setFormData((prev) => ({
+          ...prev,
+          profileId: profile.id,
+          author: profile.fullname,
+        }));
+      } else {
+        setHasProfile(false);
+      }
+    } catch (error) {
+      console.error("Error checking user profile:", error);
+      setHasProfile(false);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    checkUserProfile();
+  }, []);
+
+  // If no profile, redirect to profile page
+  useEffect(() => {
+    if (!profileLoading && !hasProfile) {
+      const confirmed = window.confirm(
+        "You need to complete your profile before creating a proposal. Would you like to go to the profile page now?"
+      );
+      if (confirmed) {
+        navigate("/profile");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [profileLoading, hasProfile, navigate]);
 
   // Convert file to base64
   const convertToBase64 = (file: File): Promise<string> =>
@@ -115,6 +187,12 @@ export default function CreateProposalPage({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    if (!hasProfile || !userProfile) {
+      alert("Profile is required to create proposals");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -122,6 +200,7 @@ export default function CreateProposalPage({
 
       const proposalData = {
         principal: formData.principal,
+        profileId: formData.profileId,
         title: formData.title,
         description: formData.description,
         full_description: formData.fullDescription,
@@ -149,13 +228,14 @@ export default function CreateProposalPage({
       // Reset
       setFormData({
         principal: principal || "",
+        profileId: userProfile.id,
         title: "",
         description: "",
         fullDescription: "",
         category: "Governance",
         duration: "7",
         image: "",
-        author: "",
+        author: userProfile.fullname,
       });
       setImagePreview("");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -175,6 +255,80 @@ export default function CreateProposalPage({
 
   const handleInputChange = (field: string, value: string) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+  // Show loading state
+  if (profileLoading) {
+    return (
+      <div
+        className={`min-h-screen flex items-center justify-center ${
+          darkMode ? "bg-gray-900" : "bg-gray-50"
+        }`}
+      >
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className={darkMode ? "text-white" : "text-gray-900"}>
+            Checking profile...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show profile required message
+  if (!hasProfile) {
+    return (
+      <div
+        className={`min-h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}
+      >
+        <div className="max-w-2xl mx-auto px-4 py-16">
+          <div
+            className={`rounded-lg border p-8 text-center ${
+              darkMode
+                ? "bg-gray-800 border-gray-700"
+                : "bg-white border-gray-200"
+            }`}
+          >
+            <AlertCircle
+              size={64}
+              className={`mx-auto mb-6 ${
+                darkMode ? "text-yellow-400" : "text-yellow-500"
+              }`}
+            />
+            <h1
+              className={`text-2xl font-bold mb-4 ${
+                darkMode ? "text-white" : "text-gray-900"
+              }`}
+            >
+              Profile Required
+            </h1>
+            <p
+              className={`text-lg mb-6 ${
+                darkMode ? "text-gray-300" : "text-gray-600"
+              }`}
+            >
+              You need to complete your profile before creating a proposal. This
+              helps the community know who you are.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <Button
+                onClick={() => navigate("/profile")}
+                variant="gradient"
+                icon={User}
+              >
+                Complete Profile
+              </Button>
+              <Button
+                onClick={() => navigate("/dashboard")}
+                variant="secondary"
+              >
+                Back to Dashboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -214,6 +368,56 @@ export default function CreateProposalPage({
             </p>
           </div>
 
+          {/* Profile info display */}
+          {userProfile && (
+            <div
+              className={`mb-6 rounded-lg border p-4 ${
+                darkMode
+                  ? "bg-green-900/20 border-green-800"
+                  : "bg-green-50 border-green-200"
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  {userProfile.image_url ? (
+                    <img
+                      src={userProfile.image_url}
+                      alt={userProfile.fullname}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        darkMode ? "bg-gray-700" : "bg-gray-200"
+                      }`}
+                    >
+                      <User
+                        size={20}
+                        className={darkMode ? "text-gray-400" : "text-gray-500"}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p
+                    className={`font-medium ${
+                      darkMode ? "text-green-300" : "text-green-800"
+                    }`}
+                  >
+                    Profile Verified: {userProfile.fullname}
+                  </p>
+                  <p
+                    className={`text-sm ${
+                      darkMode ? "text-green-400" : "text-green-700"
+                    }`}
+                  >
+                    Profile ID: {userProfile.id}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Grid 2 kolom: 2fr / 1fr */}
           <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8 items-start">
             {/* LEFT: Form (min-w-0 untuk cegah overflow) */}
@@ -240,6 +444,21 @@ export default function CreateProposalPage({
                     darkMode={darkMode}
                   />
 
+                  {/* Profile ID - New field */}
+                  <FormInput
+                    label="Profile ID"
+                    type="text"
+                    name="profileId"
+                    value={formData.profileId}
+                    onChange={(e) =>
+                      handleInputChange("profileId", e.target.value)
+                    }
+                    placeholder="Your Profile ID"
+                    disabled={true}
+                    darkMode={darkMode}
+                    helpText="This is automatically filled from your completed profile"
+                  />
+
                   {/* Author */}
                   <FormInput
                     label="Author"
@@ -250,7 +469,9 @@ export default function CreateProposalPage({
                       handleInputChange("author", e.target.value)
                     }
                     placeholder="Enter Your Name"
+                    disabled={true}
                     darkMode={darkMode}
+                    helpText="This is automatically filled from your profile"
                   />
 
                   {/* Title */}
@@ -470,7 +691,7 @@ export default function CreateProposalPage({
                     </Button>
                     <Button
                       type="submit"
-                      disabled={isSubmitting || isUploading}
+                      disabled={isSubmitting || isUploading || !hasProfile}
                       variant="gradient"
                       className="flex-1"
                     >
@@ -497,10 +718,10 @@ export default function CreateProposalPage({
                   category: formData.category,
                   durationDays: parseInt(formData.duration, 10),
                   image: formData.image,
+                  profileId: formData.profileId,
                 }}
                 onCreated={(newId) => {
                   // arahkan ke detail proposal atau dashboard
-                  // kalau backend pakai principal sebagai user_id, route bisa:
                   navigate(`/proposal/${formData.principal}/${newId}`);
                 }}
               />
