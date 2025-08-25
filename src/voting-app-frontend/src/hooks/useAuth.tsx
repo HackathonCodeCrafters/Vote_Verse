@@ -114,7 +114,7 @@ export function useAuth(): UseAuthReturn {
 
     try {
       await authClient.login({
-        identityProvider: "https://identity.ic0.app",
+        identityProvider: "http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/",
         onSuccess: async () => {
           const p = authClient.getIdentity().getPrincipal().toText();
           setPrincipal(p);

@@ -1,8 +1,7 @@
-import Card from "@/shared/components/Card"
 import { TrendingUp, Users, Vote } from "lucide-react";
 
 interface RecentActivityProps {
-  darkMode?: boolean
+  darkMode?: boolean;
 }
 
 const recentActivity = [
@@ -32,9 +31,11 @@ const recentActivity = [
   },
 ];
 
-export default function RecentActivitySection({ darkMode = false}: RecentActivityProps) {
+export default function RecentActivitySection({
+  darkMode = false,
+}: RecentActivityProps) {
   return (
-    <div>
+    <div className="rounded-2xl border backdrop-blur-sm bg-gray-800/50 border-gray-700 hover:bg-gray-800/70  p-4">
       <h2
         className={`text-2xl font-bold mb-6 ${
           darkMode ? "text-white" : "text-gray-900"
@@ -42,10 +43,13 @@ export default function RecentActivitySection({ darkMode = false}: RecentActivit
       >
         Recent Activity
       </h2>
-      <Card className="p-6" darkMode={darkMode}>
+      <div>
         <div className="space-y-4">
           {recentActivity.map((activity, index) => (
-            <div key={index} className="flex items-start space-x-3">
+            <div
+              key={index}
+              className="flex items-start justify-center space-x-3 rounded-2xl border backdrop-blur-sm bg-gray-800/50 border-gray-700 hover:bg-gray-800/70 p-4"
+            >
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center ${
                   activity.type === "vote"
@@ -89,7 +93,7 @@ export default function RecentActivitySection({ darkMode = false}: RecentActivit
             </div>
           ))}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

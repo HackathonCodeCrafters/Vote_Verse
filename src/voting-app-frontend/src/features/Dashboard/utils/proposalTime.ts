@@ -27,29 +27,29 @@ export function useCountdown(
       const endTime = created + durationDays * 24 * 60 * 60 * 1000;
       const difference = endTime - now;
 
-      // DEBUG: Log semua nilai untuk debugging
-      console.log("=== COUNTDOWN DEBUG ===");
-      console.log("createdAt string:", createdAt);
-      console.log("durationDays:", durationDays);
-      console.log("now:", now, "(", new Date(now).toLocaleString(), ")");
-      console.log(
-        "created:",
-        created,
-        "(",
-        new Date(created).toLocaleString(),
-        ")"
-      );
-      console.log(
-        "endTime:",
-        endTime,
-        "(",
-        new Date(endTime).toLocaleString(),
-        ")"
-      );
-      console.log("difference:", difference, "ms");
-      console.log("difference in hours:", difference / (1000 * 60 * 60));
-      console.log("isExpired:", difference <= 0);
-      console.log("=====================");
+      // // DEBUG: Log semua nilai untuk debugging
+      // console.log("=== COUNTDOWN DEBUG ===");
+      // console.log("createdAt string:", createdAt);
+      // console.log("durationDays:", durationDays);
+      // console.log("now:", now, "(", new Date(now).toLocaleString(), ")");
+      // console.log(
+      //   "created:",
+      //   created,
+      //   "(",
+      //   new Date(created).toLocaleString(),
+      //   ")"
+      // );
+      // console.log(
+      //   "endTime:",
+      //   endTime,
+      //   "(",
+      //   new Date(endTime).toLocaleString(),
+      //   ")"
+      // );
+      // console.log("difference:", difference, "ms");
+      // console.log("difference in hours:", difference / (1000 * 60 * 60));
+      // console.log("isExpired:", difference <= 0);
+      // console.log("=====================");
 
       if (difference <= 0) {
         setTimeRemaining({

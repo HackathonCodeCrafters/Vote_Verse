@@ -13,6 +13,7 @@ import { DarkModeProvider, useDarkMode } from "./context/DarkModeContext";
 import AboutPage from "./features/About/pages/AboutPage.js";
 import ActiveVote from "./features/ActiveVotes/pages/ActiveVote.js";
 import ContactPage from "./features/Contact/ContactPage.js";
+import AIAssistantWidget from "./features/Dashboard/components/AIWidgetAssistent";
 import Dashboard from "./features/Dashboard/pages/HomePage.js";
 import CookiePolicyPage from "./features/Footer/pages/CookiePolicy.js";
 import PrivacyPolicyPage from "./features/Footer/pages/PrivacyPolicy.js";
@@ -20,8 +21,9 @@ import SecurityPolicyPage from "./features/Footer/pages/SecurityPolicy.js";
 import TermsOfServicePage from "./features/Footer/pages/Terms.js";
 import HomePage from "./features/HomeLanding/pages/HomePage.tsx";
 import PricingPage from "./features/Pricing/pages/Pricing.js";
-import ProfilePage from "./features/Profile/pages/Profile.js";
+import EnhancedProfilePage from "./features/Profile/pages/EnhancedProfile.tsx";
 import ProposalDetailPage from "./features/Proposal/components/ProposalDetailPage";
+import CreateProposalPage from "./features/Proposal/pages/CreateProposalPage.tsx";
 import { useAuth } from "./hooks/useAuth";
 import { useVoting } from "./hooks/useVoting";
 import MainLayout from "./layouts/MainLayouts";
@@ -120,7 +122,37 @@ function App() {
       );
       return;
     }
-    console.log("Opening create Proposal modal...");
+    navigate("/create-proposal");
+  };
+
+  const handleCreateProposalSubmit = async (proposalData) => {
+    try {
+      const durationDays = Number.parseInt(
+        proposalData.duration?.toString() || "7"
+      );
+
+      const proposalId = await auth.backend.add_proposal(
+        proposalData.title,
+        proposalData.description,
+        proposalData.image_url ? [proposalData.image_url] : [],
+        durationDays,
+        proposalData.full_description ? [proposalData.full_description] : [],
+        proposalData.category ? [proposalData.category] : ["General"],
+        proposalData.image
+          ? [proposalData.image]
+          : proposalData.image_url
+          ? [proposalData.image_url]
+          : ["/placeholder.svg"],
+        proposalData.author ? [proposalData.author] : [],
+        []
+      );
+
+      console.log("New Proposal created with ID:", proposalId);
+      voting.refreshResults();
+    } catch (err) {
+      console.error("Failed to create Proposal:", err);
+      throw err;
+    }
   };
 
   // Show loading screen while auth or dark mode is loading
@@ -214,7 +246,22 @@ function App() {
 
         <Route
           path="/profile"
-          element={auth.isAuthenticated ? <ProfilePage /> : <Navigate to="/" />}
+          element={
+            auth.isAuthenticated ? <EnhancedProfilePage /> : <Navigate to="/" />
+          }
+        />
+
+        <Route
+          path="/create-proposal"
+          element={
+            auth.isAuthenticated ? (
+              <CreateProposalPage
+                onCreateProposal={handleCreateProposalSubmit}
+              />
+            ) : (
+              <Navigate to="/" />
+            )
+          }
         />
 
         <Route path="/about" element={<AboutPage />} />
@@ -229,6 +276,8 @@ function App() {
         {/* Catch-all route */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+
+      <AIAssistantWidget darkMode={darkMode} />
     </MainLayout>
   );
 }

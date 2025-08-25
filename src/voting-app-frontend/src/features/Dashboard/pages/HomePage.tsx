@@ -14,8 +14,11 @@ import Pagination from "@/shared/components/Pagination";
 import { Award, Plus, TrendingUp, Users, Vote } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
+import { useNavigate } from "react-router-dom";
 import { voting_app_backend as backend } from "../../../../../declarations/voting-app-backend";
 import { useDarkMode } from "../../../context/DarkModeContext";
+import AgentAICard from "../components/AgentAICard";
+import RecentActivitySection from "../components/RecentActivitySection";
 
 interface DashboardProps {
   onCreateProposal: () => void;
@@ -57,6 +60,7 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { principal } = useAuth();
+  const navigate = useNavigate();
 
   // Pagination hook
   const {
@@ -292,7 +296,7 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
 
             <div className="hidden md:block">
               <Button
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={() => navigate("/create-proposal")}
                 variant="gradient"
                 icon={Plus}
                 size="lg"
@@ -345,7 +349,7 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Active Proposals */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 rounded-2xl border backdrop-blur-sm bg-gray-800/50 border-gray-700 hover:bg-gray-800/70 overflow-hidden p-4">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2
@@ -416,63 +420,9 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
             )}
           </div>
 
-          {/* Recent Activity Section */}
-          <div>
-            <h2
-              className={`text-2xl font-bold mb-6 ${
-                darkMode ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Recent Activity
-            </h2>
-            <Card className="p-6" darkMode={darkMode}>
-              <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start space-x-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        activity.type === "vote"
-                          ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                          : activity.type === "create"
-                          ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
-                      }`}
-                    >
-                      {activity.type === "vote" ? (
-                        <Vote size={16} />
-                      ) : activity.type === "create" ? (
-                        <TrendingUp size={16} />
-                      ) : (
-                        <Users size={16} />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p
-                        className={`text-sm font-medium ${
-                          darkMode ? "text-white" : "text-gray-900"
-                        }`}
-                      >
-                        {activity.action}
-                      </p>
-                      <p
-                        className={`text-sm ${
-                          darkMode ? "text-gray-400" : "text-gray-600"
-                        }`}
-                      >
-                        {activity.proposal}
-                      </p>
-                      <p
-                        className={`text-xs ${
-                          darkMode ? "text-gray-500" : "text-gray-500"
-                        }`}
-                      >
-                        {activity.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
+          <div className="lg:col-span-1 space-y-8">
+            <AgentAICard darkMode={darkMode} />
+            <RecentActivitySection darkMode={darkMode} />
           </div>
         </div>
 
@@ -490,6 +440,8 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
           onClose={() => setIsCreateModalOpen(false)}
           onCreateProposal={handleCreateProposal}
         />
+
+        {/* <AIWidgetAssistent darkMode={darkMode} /> */}
       </div>
     </>
   );
