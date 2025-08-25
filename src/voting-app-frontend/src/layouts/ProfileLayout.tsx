@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import AdaptiveNavbar from "../shared/components/Navbar";
 import ProfilePage from "../features/Profile/pages/Profile";
+import AdaptiveNavbar from "../shared/components/Navbar";
 
 export default function ProfileLayout() {
   const [darkMode, setDarkMode] = useState(false);
@@ -57,7 +57,6 @@ export default function ProfileLayout() {
       />
 
       <ProfilePage
-        darkMode={darkMode}
         principal={mockUser.principal}
         userName={mockUser.userName}
         userAvatar={mockUser.userAvatar}

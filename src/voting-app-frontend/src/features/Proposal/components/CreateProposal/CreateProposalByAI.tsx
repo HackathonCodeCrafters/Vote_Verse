@@ -6,19 +6,18 @@ import { Lightbulb, Loader2, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { voting_app_backend as backend } from "../../../../../../declarations/voting-app-backend";
 
-type Defaults = {
-  principal?: string; // user_id
-  author?: string | null;
-  category?: string | null; // e.g. "Governance"
-  durationDays?: number | null; // e.g. 7
-  image?: string | null; // can be data:... or https://...
-};
+interface Defaults {
+  principal: string;
+  author: string;
+  category: string;
+  durationDays: number;
+  image: string;
+  profileId?: string; // Add this line
+}
 
 interface AgentAICardProps {
-  /** optional default values pulled from Create form */
   defaults?: Defaults;
-  /** called when canister returns a new proposal id */
-  onCreated?: (proposalId: string) => void;
+  onCreated: (newId: string) => void;
 }
 
 // Candid Option<T> -> [] | [T]
