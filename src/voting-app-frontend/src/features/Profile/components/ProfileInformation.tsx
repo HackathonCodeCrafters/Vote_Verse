@@ -7,6 +7,7 @@ import {
   Mail,
   MapPin,
   Save,
+  Loader2,
 } from "lucide-react";
 import { useState } from "react";
 import { Profile } from "../types/profile";
@@ -18,6 +19,7 @@ interface ProfileInformationProps {
   isEditing: boolean;
   setIsEditing: (editing: boolean) => void;
   handleSaveProfile: () => void;
+  saving?: boolean;
 }
 
 function ProfileInformation({
@@ -27,6 +29,7 @@ function ProfileInformation({
   isEditing,
   setIsEditing,
   handleSaveProfile,
+  saving = false,
 }: ProfileInformationProps) {
   const [showPrincipal, setShowPrincipal] = useState(false);
 
@@ -45,6 +48,13 @@ function ProfileInformation({
       .toUpperCase()
       .slice(0, 2);
   };
+  const saveBtnBase =
+    "inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors";
+  const saveBtnStyle = isEditing
+    ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
+    : darkMode
+    ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+    : "border-gray-300 text-gray-700 hover:bg-gray-50";
 
   return (
     <div
@@ -60,22 +70,30 @@ function ProfileInformation({
         >
           Profile Information
         </h2>
+
         <button
           onClick={() => (isEditing ? handleSaveProfile() : setIsEditing(true))}
-          className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
-            isEditing
-              ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
-              : darkMode
-              ? "border-gray-600 text-gray-300 hover:bg-gray-700"
-              : "border-gray-300 text-gray-700 hover:bg-gray-50"
+          disabled={isEditing && saving}            
+          aria-busy={isEditing && saving ? true : undefined}
+          className={`${saveBtnBase} ${saveBtnStyle} ${
+            isEditing && saving ? "opacity-60 cursor-not-allowed" : ""
           }`}
         >
           {isEditing ? (
-            <Save className="w-4 h-4 mr-2" />
+            <>
+              {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {saving ? "Saving…" : "Save"}
+            </>
           ) : (
-            <Edit3 className="w-4 h-4 mr-2" />
+            <>
+              <Edit3 className="w-4 h-4 mr-2" />
+              Edit
+            </>
           )}
-          {isEditing ? "Save" : "Edit"}
         </button>
       </div>
 
@@ -109,6 +127,7 @@ function ProfileInformation({
                     ? "bg-gray-700 text-white"
                     : "bg-gray-100 text-gray-600"
                 }`}
+                disabled={saving}                
               >
                 <Camera className="w-4 h-4" />
               </button>
@@ -128,7 +147,7 @@ function ProfileInformation({
                   darkMode ? "text-gray-400" : "text-gray-600"
                 }`}
               >
-                {formatPrincipal(profileData.principal ?? "")}
+                {formatPrincipal((profileData as any).principal ?? "")}
               </span>
               <button
                 onClick={() => setShowPrincipal(!showPrincipal)}
@@ -150,6 +169,7 @@ function ProfileInformation({
 
         {/* Form Fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Full Name */}
           <div>
             <label
               className={`block text-sm font-medium mb-2 ${
@@ -168,11 +188,12 @@ function ProfileInformation({
                     name: e.target.value,
                   })
                 }
+                disabled={saving}                        
                 className={`w-full px-3 py-2 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   darkMode
                     ? "bg-gray-700 border-gray-600 text-white"
                     : "bg-white border-gray-300 text-gray-900"
-                }`}
+                } ${saving ? "opacity-60 cursor-not-allowed" : ""}`}
               />
             ) : (
               <p
@@ -185,6 +206,7 @@ function ProfileInformation({
             )}
           </div>
 
+          {/* Email */}
           <div>
             <label
               className={`block text-sm font-medium mb-2 ${
@@ -203,18 +225,16 @@ function ProfileInformation({
                     email: e.target.value,
                   })
                 }
+                disabled={saving}
                 className={`w-full px-3 py-2 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   darkMode
                     ? "bg-gray-700 border-gray-600 text-white"
                     : "bg-white border-gray-300 text-gray-900"
-                }`}
+                } ${saving ? "opacity-60 cursor-not-allowed" : ""}`}
               />
             ) : (
               <div className="flex items-center space-x-2 py-2">
-                <Mail
-                  size={16}
-                  className={darkMode ? "text-gray-400" : "text-gray-600"}
-                />
+                <Mail size={16} className={darkMode ? "text-gray-400" : "text-gray-600"} />
                 <span className={darkMode ? "text-gray-300" : "text-gray-900"}>
                   {profileData.email}
                 </span>
@@ -222,6 +242,7 @@ function ProfileInformation({
             )}
           </div>
 
+          {/* Location */}
           <div>
             <label
               className={`block text-sm font-medium mb-2 ${
@@ -240,18 +261,16 @@ function ProfileInformation({
                     location: e.target.value,
                   })
                 }
+                disabled={saving}
                 className={`w-full px-3 py-2 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   darkMode
                     ? "bg-gray-700 border-gray-600 text-white"
                     : "bg-white border-gray-300 text-gray-900"
-                }`}
+                } ${saving ? "opacity-60 cursor-not-allowed" : ""}`}
               />
             ) : (
               <div className="flex items-center space-x-2 py-2">
-                <MapPin
-                  size={16}
-                  className={darkMode ? "text-gray-400" : "text-gray-600"}
-                />
+                <MapPin size={16} className={darkMode ? "text-gray-400" : "text-gray-600"} />
                 <span className={darkMode ? "text-gray-300" : "text-gray-900"}>
                   {profileData.location}
                 </span>
@@ -259,6 +278,7 @@ function ProfileInformation({
             )}
           </div>
 
+          {/* Website */}
           <div>
             <label
               className={`block text-sm font-medium mb-2 ${
@@ -277,18 +297,16 @@ function ProfileInformation({
                     website: e.target.value,
                   })
                 }
+                disabled={saving}
                 className={`w-full px-3 py-2 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   darkMode
                     ? "bg-gray-700 border-gray-600 text-white"
                     : "bg-white border-gray-300 text-gray-900"
-                }`}
+                } ${saving ? "opacity-60 cursor-not-allowed" : ""}`}
               />
             ) : (
               <div className="flex items-center space-x-2 py-2">
-                <Globe
-                  size={16}
-                  className={darkMode ? "text-gray-400" : "text-gray-600"}
-                />
+                <Globe size={16} className={darkMode ? "text-gray-400" : "text-gray-600"} />
                 <a
                   href={profileData.website}
                   target="_blank"
@@ -302,6 +320,7 @@ function ProfileInformation({
           </div>
         </div>
 
+        {/* Bio */}
         <div>
           <label
             className={`block text-sm font-medium mb-2 ${
@@ -317,16 +336,15 @@ function ProfileInformation({
                 setProfileData({ ...profileData, bio: e.target.value })
               }
               rows={3}
+              disabled={saving}
               className={`w-full px-3 py-2 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${
                 darkMode
                   ? "bg-gray-700 border-gray-600 text-white"
                   : "bg-white border-gray-300 text-gray-900"
-              }`}
+              } ${saving ? "opacity-60 cursor-not-allowed" : ""}`}
             />
           ) : (
-            <p
-              className={`py-2 ${darkMode ? "text-gray-300" : "text-gray-900"}`}
-            >
+            <p className={`py-2 ${darkMode ? "text-gray-300" : "text-gray-900"}`}>
               {profileData.bio}
             </p>
           )}
