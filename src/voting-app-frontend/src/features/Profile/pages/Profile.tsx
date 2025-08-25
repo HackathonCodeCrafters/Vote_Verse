@@ -30,6 +30,7 @@ interface ProfilePageProps {
   userName?: string;
   userAvatar?: string;
   votingPower?: number;
+  darkMode?: boolean; // Add this line
   onUpdateProfile?: (data: any) => void;
 }
 
