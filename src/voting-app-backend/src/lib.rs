@@ -19,7 +19,11 @@ fn generate_deterministic_id() -> String {
     hex::encode(&result[..16]) // ambil 16 byte, hex string
 }
 
-
+#[derive(CandidType, Deserialize, Serialize, Clone)]
+pub struct ChatTurn {
+    pub role: String,    // "system" | "user" | "assistant"
+    pub content: String, // isi pesan
+}
 
 #[derive(CandidType, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -224,6 +228,7 @@ async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<Stri
     }
 }
 
+
 #[derive(CandidType, Deserialize)]
 pub enum VoteChoice {
     Yes,
@@ -385,3 +390,26 @@ fn create_profile(image_url: Option<String>, fullname: String, email: String, lo
 }
 
 
+// Chat AI
+#[update]
+async fn chat_ai(turns: Vec<ChatTurn>) -> String {
+    // gabungkan semua turn jadi 1 prompt
+    let system = "You are a helpful governance assistant for VoteVerse. Answer clearly and concisely.";
+    let mut prompt = String::new();
+    prompt.push_str(system);
+    prompt.push_str("\n\n---\n");
+
+    for t in &turns {
+        let r = t.role.to_lowercase();
+        if r == "system" {
+            prompt.push_str(&format!("\n[system]: {}\n", t.content));
+        } else if r == "assistant" {
+            prompt.push_str(&format!("\n[assistant]: {}\n", t.content));
+        } else {
+            prompt.push_str(&format!("\n[user]: {}\n", t.content));
+        }
+    }
+
+    // PANGGIL LLM (ini akan TRAP kalau dijalankan di local)
+    ic_llm::prompt(Model::Qwen3_32B, prompt).await
+}

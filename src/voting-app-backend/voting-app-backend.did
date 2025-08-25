@@ -21,7 +21,7 @@ type Proposal = record {
   author: opt text;
   category: opt text;
   discussions: opt nat32;
-  voters: opt vec principal;
+  voters: vec principal;
   user_id: opt text;
 };
 
@@ -36,13 +36,23 @@ type ProposalStats = record {
   total_votes: nat64;
 };
 
+type ChatTurn = record {
+  role: text;
+  content: text;
+};
+
 
 service : {
+  add_proposal_with_prompt: (text, opt text, nat32, opt text, opt text, opt text, opt text) -> (text);
   add_proposal: (text, text, opt text, nat32, opt text, opt text, opt text, opt text, opt text) -> (text);
   get_proposals: () -> (vec Proposal) query;
-  vote_proposal: (text, text, VoteChoice) -> (VoteResult);
   get_proposal_by_id: (text) -> (opt Proposal) query;
-  get_proposal_stats: () -> (ProposalStats) query;
-  delete_proposal: (text) -> (VoteResult);
   get_proposal_by_user_id: (text) -> (vec Proposal) query;
+  get_proposal_stats: () -> (ProposalStats) query;
+  vote_proposal: (text, text, VoteChoice) -> (VoteResult);
+  delete_proposal: (text) -> (VoteResult);
+  get_users: () -> (vec record { id: text; image_url: opt text; fullname: text; email: text; location: opt text; website: opt text; bio: opt text; }) query;
+  prompting: (text) -> (text);
+  create_profile: (opt text, text, text, opt text, opt text, opt text) -> (text);
+  chat_ai: (vec ChatTurn) -> (text);
 }
