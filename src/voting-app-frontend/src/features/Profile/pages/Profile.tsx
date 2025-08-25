@@ -10,10 +10,17 @@ import {
   Settings,
   Shield,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ProfileInformation from "../components/ProfileInformation";
 import type { Profile } from "../types/profile";
-import { createProfileAPI } from "@/ic/api";
+import { 
+  createProfileAPI,
+  persistProfileId,
+  loadPersistedProfileId,
+  getUserByIdAPI,
+  persistProfileCache,
+  loadPersistedProfileCache, 
+} from "@/ic/api";
 
 interface ProfilePageProps {
   darkMode?: boolean;
@@ -34,9 +41,14 @@ export default function ProfilePage({
 }: ProfilePageProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showPrincipal, setShowPrincipal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
   // Profile form state
-  const [profileData, setProfileData] = useState<Profile>({
+  const [profileData, setProfileData] = useState<Profile>(() => {
+  // default dummy…
+  const base: Profile = {
     id: "user-1",
     name: userName,
     username: userName.toLowerCase().replace(/\s+/g, ""),
@@ -48,7 +60,26 @@ export default function ProfilePage({
     avatar: userAvatar || "",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  });
+  };
+
+  if (typeof window !== "undefined") {
+    const cached = loadPersistedProfileCache();
+    if (cached) {
+      return {
+        ...base,
+        id: cached.id,
+        name: cached.fullname,
+        username: cached.fullname,
+        email: cached.email,
+        bio: cached.bio || base.bio,
+        avatar: cached.image_url || base.avatar,
+        location: cached.location || base.location,
+        website: cached.website || base.website,
+      };
+    }
+  }
+  return base;
+});
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -61,8 +92,10 @@ export default function ProfilePage({
 
   // Edit Profile Handlers
   const handleSaveProfile = async () => {
+
+  setSaving(true); setErrorMsg(null);
   try {
-    setIsEditing(false); 
+
     const newId = await createProfileAPI({
       image_url: profileData.avatar || null,
       fullname: profileData.name ?? "",
@@ -72,13 +105,89 @@ export default function ProfilePage({
       bio: profileData.bio || null,
     });
 
-    setProfileData((prev) => ({ ...prev, id: newId, updatedAt: new Date().toISOString() }));
+    persistProfileId(newId);
 
+    // Fetch from canister & update + cache
+    const fresh = await getUserByIdAPI(newId);
+    if (fresh) {
+      persistProfileCache({
+        id: fresh.id,
+        fullname: fresh.fullname,
+        email: fresh.email,
+        image_url: fresh.image_url,
+        location: fresh.location,
+        website: fresh.website,
+        bio: fresh.bio,
+      });
+
+    setProfileData((prev) => ({
+      ...prev,
+      id: fresh.id,
+        name: fresh.fullname,
+        username: fresh.fullname,
+        email: fresh.email,
+        bio: fresh.bio || prev.bio,
+        avatar: fresh.image_url || prev.avatar,
+        location: fresh.location || prev.location,
+        website: fresh.website || prev.website,
+        updatedAt: new Date().toISOString(),
+    }));
+
+    } else {
+      // fallback if null
+      setProfileData((prev) => ({ ...prev, id: newId, updatedAt: new Date().toISOString() }));
+    }
+
+    setCreatedId(newId);
     setIsEditing(false);
-  } catch (e:any) {
-    console.error(e.message ?? "Failed to create profile");
+  } catch (err: any) {
+    setErrorMsg(err?.message ?? "Failed to create profile");
+  } finally {
+    setSaving(false);
   }
 };
+
+  useEffect(() => {
+  const id = loadPersistedProfileId();
+  if (!id) {
+    console.log("[hydrate] no vv_profile_id in localStorage");
+    return;
+  }
+
+  (async () => {
+    try {
+      console.log("[hydrate] loading user by id:", id);
+      const u = await getUserByIdAPI(id);
+      console.log("[hydrate] canister user:", u);
+      if (!u) return;
+
+      persistProfileCache({
+        id: u.id,
+        fullname: u.fullname,
+        email: u.email,
+        image_url: u.image_url,
+        location: u.location,
+        website: u.website,
+        bio: u.bio,
+      });
+
+      setProfileData((prev) => ({
+        ...prev,
+        id: u.id,
+        name: u.fullname,
+        username: u.fullname,
+        email: u.email,
+        bio: u.bio || prev.bio,
+        avatar: u.image_url || prev.avatar,
+        location: u.location || prev.location,
+        website: u.website || prev.website,
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch (e) {
+      console.warn("[hydrate] failed:", e);
+    }
+  })();
+}, []);
 
   const stats = [
     {
