@@ -6,12 +6,8 @@
       "type": "rust"
     },
     "voting-app-frontend": {
-      "dependencies": [
-        "voting-app-backend"
-      ],
-      "source": [
-        "src/voting-app-frontend/dist"
-      ],
+      "dependencies": ["voting-app-backend"],
+      "source": ["src/voting-app-frontend/dist"],
       "type": "assets",
       "workspace": "voting-app-frontend"
     }

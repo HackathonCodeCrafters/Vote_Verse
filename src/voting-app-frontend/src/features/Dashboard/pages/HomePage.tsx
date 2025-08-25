@@ -8,14 +8,18 @@ import ProposalDetailModal from "@/features/Proposal/components/DetailProposal/D
 import ProposalCard from "@/features/Proposal/components/ProposalCard";
 import { useAuth } from "@/hooks/useAuth";
 import { usePagination } from "@/hooks/usePagination";
+import { getUserByIdAPI, loadPersistedProfileId } from "@/ic/api";
 import Button from "@/shared/components/Button";
 import Card from "@/shared/components/Card";
 import Pagination from "@/shared/components/Pagination";
-import { Award, Plus, TrendingUp, Users, Vote } from "lucide-react";
+import { Award, Plus, TrendingUp, User, Users, Vote } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet";
+import { useNavigate } from "react-router-dom";
 import { voting_app_backend as backend } from "../../../../../declarations/voting-app-backend";
 import { useDarkMode } from "../../../context/DarkModeContext";
+import AgentAICard from "../components/AgentAICard";
+import RecentActivitySection from "../components/RecentActivitySection";
 
 interface DashboardProps {
   onCreateProposal: () => void;
@@ -56,7 +60,10 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
     useState<Proposal.Proposal | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
   const { principal } = useAuth();
+  const navigate = useNavigate();
 
   // Pagination hook
   const {
@@ -72,6 +79,40 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
     itemsPerPage: 10,
     initialPage: 1,
   });
+
+  // Check if user has a profile
+  const checkUserProfile = async () => {
+    setProfileLoading(true);
+    try {
+      const profileId = loadPersistedProfileId();
+      if (!profileId) {
+        setHasProfile(false);
+        return;
+      }
+
+      const profile = await getUserByIdAPI(profileId);
+      setHasProfile(!!profile);
+    } catch (error) {
+      console.error("Error checking user profile:", error);
+      setHasProfile(false);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleCreateProposalClick = () => {
+    if (!hasProfile) {
+      // Show modal asking user to complete profile first
+      const confirmed = window.confirm(
+        "You need to complete your profile before creating a proposal. Would you like to go to the profile page now?"
+      );
+      if (confirmed) {
+        navigate("/profile");
+      }
+      return;
+    }
+    navigate("/create-proposal");
+  };
 
   const calculateTimeLeft = (
     createdAt: number,
@@ -173,10 +214,6 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
     }
   };
 
-  // Fixed handleVote function for your Dashboard component
-
-  // Fixed handleVote function for your Dashboard component
-
   const handleVote = async (proposalId: string, vote: "yes" | "no") => {
     try {
       if (!principal) {
@@ -185,7 +222,7 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
       }
 
       const proposalIdString = String(proposalId);
-      const userPrincipal = principal.toString(); // pastikan ini string
+      const userPrincipal = principal.toString();
       const voteChoices = vote === "yes" ? { Yes: null } : { No: null };
 
       console.log("Voting with:", {
@@ -259,6 +296,7 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
   };
 
   useEffect(() => {
+    checkUserProfile();
     fetchProposals();
     fetchProposalStats();
   }, []);
@@ -267,6 +305,36 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
     setSelectedProposal(proposal);
     setIsDetailModalOpen(true);
   };
+
+  // Profile incomplete notification component
+  const ProfileIncompleteNotice = () => (
+    <div
+      className={`mb-6 rounded-lg border p-4 ${
+        darkMode
+          ? "bg-yellow-900/20 border-yellow-800 text-yellow-300"
+          : "bg-yellow-50 border-yellow-200 text-yellow-800"
+      }`}
+    >
+      <div className="flex items-start space-x-3">
+        <User size={20} className="mt-0.5" />
+        <div className="flex-1">
+          <h3 className="font-medium">Complete Your Profile</h3>
+          <p className="text-sm mt-1 opacity-90">
+            You need to complete your profile before creating proposals. This
+            helps the community know who you are.
+          </p>
+          <Button
+            onClick={() => navigate("/profile")}
+            variant="secondary"
+            size="sm"
+            className="mt-3"
+          >
+            Complete Profile
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -292,16 +360,20 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
 
             <div className="hidden md:block">
               <Button
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={handleCreateProposalClick}
                 variant="gradient"
                 icon={Plus}
                 size="lg"
+                disabled={profileLoading}
               >
-                Create Proposal
+                {profileLoading ? "Loading..." : "Create Proposal"}
               </Button>
             </div>
           </div>
         </div>
+
+        {/* Profile incomplete notice */}
+        {!profileLoading && !hasProfile && <ProfileIncompleteNotice />}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -345,7 +417,7 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Active Proposals */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 rounded-2xl border backdrop-blur-sm bg-gray-800/50 border-gray-700 hover:bg-gray-800/70 overflow-hidden p-4">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2
@@ -365,9 +437,10 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
               </div>
               <div className="md:hidden">
                 <Button
-                  onClick={() => setIsCreateModalOpen(true)}
+                  onClick={handleCreateProposalClick}
                   variant="gradient"
                   icon={Plus}
+                  disabled={profileLoading}
                 >
                   Create
                 </Button>
@@ -416,63 +489,9 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
             )}
           </div>
 
-          {/* Recent Activity Section */}
-          <div>
-            <h2
-              className={`text-2xl font-bold mb-6 ${
-                darkMode ? "text-white" : "text-gray-900"
-              }`}
-            >
-              Recent Activity
-            </h2>
-            <Card className="p-6" darkMode={darkMode}>
-              <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start space-x-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        activity.type === "vote"
-                          ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                          : activity.type === "create"
-                          ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
-                      }`}
-                    >
-                      {activity.type === "vote" ? (
-                        <Vote size={16} />
-                      ) : activity.type === "create" ? (
-                        <TrendingUp size={16} />
-                      ) : (
-                        <Users size={16} />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p
-                        className={`text-sm font-medium ${
-                          darkMode ? "text-white" : "text-gray-900"
-                        }`}
-                      >
-                        {activity.action}
-                      </p>
-                      <p
-                        className={`text-sm ${
-                          darkMode ? "text-gray-400" : "text-gray-600"
-                        }`}
-                      >
-                        {activity.proposal}
-                      </p>
-                      <p
-                        className={`text-xs ${
-                          darkMode ? "text-gray-500" : "text-gray-500"
-                        }`}
-                      >
-                        {activity.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
+          <div className="lg:col-span-1 space-y-8">
+            <AgentAICard darkMode={darkMode} />
+            <RecentActivitySection darkMode={darkMode} />
           </div>
         </div>
 
