@@ -25,7 +25,15 @@ type Proposal = record {
   user_id: opt text;
 };
 
-
+type User = record {
+  id: text;
+  image_url: opt text;
+  fullname: text;
+  email: text;
+  location: opt text;
+  website: opt text;
+  bio: opt text;
+};
 
 type VoteResult = variant { Ok: null; Err: text };
 type VoteChoice = variant { Yes; No };
@@ -47,6 +55,6 @@ service : {
   get_proposal_by_user_id: (text) -> (vec Proposal) query;
   get_users: () -> (vec User) query;
   get_users_by_id: (text) -> (opt User) query;
-  create_profile:(text, text, text, text, text, text)  -> (vec text) query;
+  create_profile: (opt text, text, text, opt text, opt text, opt text) -> (text);
   add_proposal_with_prompt:(text, text, nat32, text, text, text, text)-> (text);
 }

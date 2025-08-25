@@ -368,7 +368,14 @@ async fn prompting(prompt: String) -> String {
 }
 
 #[update]
-fn create_profile(image_url: Option<String>, fullname: String, email: String, location: Option<String>, website: Option<String>, bio: Option<String>) -> String {
+fn create_profile(
+    image_url: Option<String>, 
+    fullname: String, 
+    email: String, 
+    location: Option<String>, 
+    website: Option<String>, 
+    bio: Option<String>,
+) -> String {
     STATE.with(|state| {
         let mut s = state.borrow_mut();
 
@@ -376,12 +383,12 @@ fn create_profile(image_url: Option<String>, fullname: String, email: String, lo
 
         let user = User {
             id : id.clone(),
-            image_url: image_url,
-            fullname: fullname,
-            email: email,
-            location: location,
-            website: website,
-            bio: bio,
+            image_url,
+            fullname,
+            email,
+            location,
+            website,
+            bio,
         };
 
         s.users.insert(id.clone(), user);
