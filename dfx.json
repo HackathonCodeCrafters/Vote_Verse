@@ -10,7 +10,19 @@
       "source": ["src/voting-app-frontend/dist"],
       "type": "assets",
       "workspace": "voting-app-frontend"
+    },
+    "ledger": {
+      "type": "custom",
+      "candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-08-29/ledger.did",
+      "wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-08-29/ledger-canister_notify-method.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
+        }
+      },
+      "init_arg": "(variant { Init = record { minting_account = \"e256190d548b0462996f6676de517a282e5cf72ee02216aab1cab8cd014f6d8f\"; initial_values = vec { record { \"e256190d548b0462996f6676de517a282e5cf72ee02216aab1cab8cd014f6d8f\"; record { e8s = 10_000_000_000_000 : nat64 } } }; send_whitelist = vec {}; transfer_fee = opt record { e8s = 10_000 : nat64 }; token_symbol = opt \"LICP\"; token_name = opt \"Local ICP Token\"; archive_options = opt record { num_blocks_to_archive = 1_000 : nat64; trigger_threshold = 2_000 : nat64; controller_id = principal \"uqqxf-5h777-77774-qaaaa-cai\" } } })"
     }
+
   },
   "defaults": {
     "build": {

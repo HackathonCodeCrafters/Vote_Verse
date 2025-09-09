@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { useDarkMode } from "../../../context/DarkModeContext";
 import ProfileInformation from "../components/ProfileInformation";
 import type { Profile } from "../types/profile";
+import PlugConnect from "@/features/wallet/PlugConnect";
 
 interface ProfilePageProps {
   principal?: string;
@@ -638,6 +639,8 @@ export default function ProfilePage({
           <p className={`text-lg ${textMuted}`}>
             Manage your account, settings, and proposals
           </p>
+
+          <PlugConnect />
 
           {/* Status Messages */}
           {saving && (
