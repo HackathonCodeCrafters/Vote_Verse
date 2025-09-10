@@ -1,27 +1,26 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Principal } from "@dfinity/principal";
-import { Actor } from "@dfinity/agent";
+import { Actor, HttpAgent } from "@dfinity/agent";
 import {
   idlFactory as icrc1IdlFactory,
-  canisterId as LEDGER_CANISTER_ID, // ← ambil dari declarations (jangan hardcode)
+  canisterId as LEDGER_CANISTER_ID, // selalu sinkron dgn dfx deploy
 } from "../../../../declarations/ledger";
 
 // =================================================================
-// Bagian 1: Konfigurasi & Utilitas
+// Konfigurasi & Utilitas
 // =================================================================
-
-const REPLICA_HOST = "http://localhost:4943"; // host replica lokal (tetap ke 4943)
+const REPLICA_HOST = "http://localhost:4943"; // gunakan 127.0.0.1 untuk konsistensi cert
 
 const getPlug = () => (window as any)?.ic?.plug as any;
 
-const waitForPlug = async (timeoutMs = 4000, intervalMs = 100): Promise<any> => {
+const waitForPlug = async (timeoutMs = 5000, intervalMs = 100): Promise<any> => {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const p = getPlug();
     if (p) return p;
     await new Promise((r) => setTimeout(r, intervalMs));
   }
-  throw new Error("Plug extension belum siap. Pastikan terpasang & aktifkan Developer Mode.");
+  throw new Error("Plug extension belum siap. Pastikan terpasang & Developer Mode ON.");
 };
 
 const truncate = (s: string | undefined, n = 5) => (!s ? "" : `${s.slice(0, n)}...${s.slice(-n)}`);
@@ -33,112 +32,171 @@ const fmt = (amt: bigint, dec: number) => {
 };
 
 // =================================================================
-// Bagian 2: Logic Hook (usePlugWallet)
+// Logic Hook (usePlugWallet)
 // =================================================================
-
 const usePlugWallet = () => {
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [balance, setBalance] = useState("0.000000");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const actorRef = useRef<any>(null);
 
-  const whitelist = [LEDGER_CANISTER_ID];
+  // Actor ke ledger via HttpAgent lokal (anon, cukup utk query)
+  const anonActorRef = useRef<any>(null);
+  const rehydratingRef = useRef(false);
 
+  const ensureAnonActor = useCallback(async () => {
+    if (anonActorRef.current) return anonActorRef.current;
+    const agent = new HttpAgent({ host: REPLICA_HOST });
+    try {
+      await agent.fetchRootKey(); // WAJIB di lokal
+    } catch (e) {
+      console.error("[fetchRootKey] gagal:", e);
+      // tetap lanjut; beberapa environment sudah trust root key
+    }
+    anonActorRef.current = Actor.createActor(icrc1IdlFactory, {
+      agent,
+      canisterId: LEDGER_CANISTER_ID,
+    });
+    return anonActorRef.current;
+  }, []);
+
+
+  const fetchBalance = useCallback(
+    async (owner: Principal) => {
+      const actor = await ensureAnonActor();
+      const [decimals, raw] = await Promise.all([
+        actor.icrc1_decimals(),
+        actor.icrc1_balance_of({ owner, subaccount: [] }),
+      ]);
+      
+      // TAMBAHKAN BARIS INI UNTUK DEBUGGING
+      console.log('Nilai saldo mentah dari canister:', raw.toString());
+
+      setBalance(fmt(raw as bigint, Number(decimals)));
+    },
+    [ensureAnonActor]
+  );
+
+  // const fetchBalance = useCallback(
+  //   async (owner: Principal) => {
+  //     const actor = await ensureAnonActor();
+  //     const [decimals, raw] = await Promise.all([
+  //       actor.icrc1_decimals(),
+  //       actor.icrc1_balance_of({ owner, subaccount: [] }),
+  //     ]);
+  //     setBalance(fmt(raw as bigint, Number(decimals)));
+  //   },
+  //   [ensureAnonActor]
+  // );
+
+  // ---- CONNECT (tanpa memutus sesi lama) ----
   const connect = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const plug = await waitForPlug();
 
-      // Putus sesi lama agar tidak “nempel” network lain
-      try { await plug.disconnect?.(); } catch {}
-
-      // 1) Pastikan Plug tersambung ke replica lokal + whitelist canister ledger
-      await plug.requestConnect?.({ host: REPLICA_HOST, whitelist });
-
-      // 2) Buat agent (idempotent). Jangan panggil fetchRootKey (tak selalu ada)
-      if (typeof plug.createAgent === "function") {
-        await plug.createAgent({ host: REPLICA_HOST, whitelist });
+      // Jika belum terhubung, baru minta izin/whitelist
+      const already = (await plug.isConnected?.()) === true;
+      if (!already) {
+        await plug.requestConnect?.({ host: REPLICA_HOST, whitelist: [LEDGER_CANISTER_ID] });
       }
-      if (!plug.agent) throw new Error("Plug agent tidak tersedia setelah connect.");
 
-      // 3) Buat aktor via @dfinity/agent, memakai agent milik Plug
-      actorRef.current = Actor.createActor(icrc1IdlFactory, {
-        agent: plug.agent,
-        canisterId: LEDGER_CANISTER_ID,
-      });
+      // Pastikan agent ada (idempotent)
+      if (typeof plug.createAgent === "function") {
+        await plug.createAgent({ host: REPLICA_HOST, whitelist: [LEDGER_CANISTER_ID] });
+      }
 
-      // 4) Ambil principal dari Plug (tipe Principal)
       const p: Principal =
-        (await plug.agent.getPrincipal?.()) ??
-        (await plug.getPrincipal?.());
+        (await plug?.agent?.getPrincipal?.()) ??
+        (await plug?.getPrincipal?.());
       if (!p) throw new Error("Gagal mengambil principal dari Plug.");
+
       setPrincipal(p);
-
-      // 5) Ambil saldo
-      const [decimals, raw] = await Promise.all([
-        actorRef.current.icrc1_decimals(),
-        actorRef.current.icrc1_balance_of({ owner: p, subaccount: [] }),
-      ]);
-      setBalance(fmt(raw as bigint, Number(decimals)));
-
+      await fetchBalance(p);
     } catch (e: any) {
       console.error("Proses koneksi gagal:", e);
-      if (/CanisterIdNotFound|canister_not_found/i.test(String(e?.message))) {
+      if (/Invalid certificate/i.test(String(e?.message))) {
+        setError("Invalid certificate: pastikan memakai 127.0.0.1:4943 & root key sudah di-fetch.");
+      } else if (/CanisterIdNotFound|canister_not_found/i.test(String(e?.message))) {
         setError(
-          "Koneksi gagal: Canister tidak ditemukan di jaringan lokal. " +
-          "Pastikan DFX berjalan, canister sudah di-deploy, Network Plug = Local (http://localhost:4943), dan whitelist berisi canister ini."
+          "Canister tidak ditemukan di replica lokal. Jalankan `dfx start --clean` & `dfx deploy`, lalu restart dev server."
         );
       } else {
         setError(e?.message ?? "Terjadi kesalahan yang tidak diketahui.");
       }
       setPrincipal(null);
       setBalance("0.000000");
-      actorRef.current = null;
+      anonActorRef.current = null;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchBalance]);
+
+  // ---- REHYDRATE saat refresh/mount/focus ----
+  const rehydrate = useCallback(async () => {
+    if (rehydratingRef.current) return;
+    rehydratingRef.current = true;
+    try {
+      const plug = await waitForPlug();
+      const connected = (await plug.isConnected?.()) === true;
+      if (!connected) return; // belum pernah di-approve
+
+      // recreate agent (idempotent) agar identity & host siap
+      if (typeof plug.createAgent === "function") {
+        await plug.createAgent({ host: REPLICA_HOST, whitelist: [LEDGER_CANISTER_ID] });
+      }
+
+      const p: Principal =
+        (await plug?.agent?.getPrincipal?.()) ??
+        (await plug?.getPrincipal?.());
+      if (!p) return;
+
+      setPrincipal(p);
+      await fetchBalance(p);
+    } catch (e) {
+      // cukup log; jangan tampilkan error saat rehydrate
+      console.warn("[rehydrate] gagal:", e);
+    } finally {
+      rehydratingRef.current = false;
+    }
+  }, [fetchBalance]);
+
+  // mount: coba rehydrate
+  useEffect(() => {
+    void rehydrate();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void rehydrate();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [rehydrate]);
 
   const disconnect = useCallback(async () => {
     const plug = getPlug();
     await plug?.disconnect?.();
-    actorRef.current = null;
+    anonActorRef.current = null;
     setPrincipal(null);
     setBalance("0.000000");
     setError(null);
   }, []);
-  
-  return {
+
+  return { principal, balance, isLoading, error, isConnected: !!principal, connect, disconnect };
+};
+
+// =================================================================
+// Komponen UI
+// =================================================================
+const PlugConnect: React.FC = () => {
+  const {
     principal,
     balance,
     isLoading,
     error,
-    isConnected: !!principal,
+    isConnected,
     connect,
     disconnect,
-  };
-};
-
-// =================================================================
-// Bagian 3: Komponen UI (PlugConnect)
-// =================================================================
-
-const PlugConnect: React.FC = () => {
-  const { 
-    principal, 
-    balance, 
-    isLoading, 
-    error, 
-    isConnected, 
-    connect, 
-    disconnect 
   } = usePlugWallet();
-
-  const handleRefresh = () => {
-    if (!isLoading) void connect();
-  };
 
   return (
     <div className="plug-connect-container">
@@ -149,11 +207,10 @@ const PlugConnect: React.FC = () => {
       ) : (
         <div className="wallet-info">
           <h4>Wallet Connected (Local)</h4>
-          <p><strong>Principal:</strong> {truncate(principal?.toText())}</p>
           <p>
-            <strong>Balance:</strong> {isLoading ? "Loading..." : `${balance} ICP`}
-            <button onClick={handleRefresh} disabled={isLoading} style={{ marginLeft: 8 }}>🔄</button>
+            <strong>Principal:</strong> {principal?.toText()}
           </p>
+          <p><strong>Balance:</strong> {isLoading ? "Loading..." : `${balance} ICP`}</p>
           <button onClick={disconnect} className="disconnect-button">Disconnect</button>
         </div>
       )}

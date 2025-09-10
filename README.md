@@ -160,3 +160,9 @@ dfx canister call voting-app-backend get_proposal_by_user_id  '("user")'
 
 dfx deploy ledger
 
+dfx canister call ledger icrc1_transfer '(
+  record {
+    to = record { owner = principal "rbgpx-vzwrd-vfxa5-kphux-ekom3-xoqun-xdlle-5wrve-qwvn4-3bw4e-jqe"; subaccount = null };
+    amount = 1_000_000_000 : nat;
+  }
+)'
