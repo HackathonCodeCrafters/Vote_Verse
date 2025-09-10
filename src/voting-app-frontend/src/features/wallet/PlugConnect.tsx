@@ -3,13 +3,11 @@ import { Principal } from "@dfinity/principal";
 import { Actor, HttpAgent } from "@dfinity/agent";
 import {
   idlFactory as icrc1IdlFactory,
-  canisterId as LEDGER_CANISTER_ID, // selalu sinkron dgn dfx deploy
+  canisterId as LEDGER_CANISTER_ID, 
 } from "../../../../declarations/ledger";
 
-// =================================================================
-// Konfigurasi & Utilitas
-// =================================================================
-const REPLICA_HOST = "http://localhost:4943"; // gunakan 127.0.0.1 untuk konsistensi cert
+
+const REPLICA_HOST = "http://localhost:4943";
 
 const getPlug = () => (window as any)?.ic?.plug as any;
 
@@ -31,16 +29,14 @@ const fmt = (amt: bigint, dec: number) => {
   return `${whole}.${frac}`;
 };
 
-// =================================================================
-// Logic Hook (usePlugWallet)
-// =================================================================
+
 const usePlugWallet = () => {
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [balance, setBalance] = useState("0.000000");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Actor ke ledger via HttpAgent lokal (anon, cukup utk query)
+  
   const anonActorRef = useRef<any>(null);
   const rehydratingRef = useRef(false);
 
@@ -51,7 +47,6 @@ const usePlugWallet = () => {
       await agent.fetchRootKey(); // WAJIB di lokal
     } catch (e) {
       console.error("[fetchRootKey] gagal:", e);
-      // tetap lanjut; beberapa environment sudah trust root key
     }
     anonActorRef.current = Actor.createActor(icrc1IdlFactory, {
       agent,
@@ -69,7 +64,6 @@ const usePlugWallet = () => {
         actor.icrc1_balance_of({ owner, subaccount: [] }),
       ]);
       
-      // TAMBAHKAN BARIS INI UNTUK DEBUGGING
       console.log('Nilai saldo mentah dari canister:', raw.toString());
 
       setBalance(fmt(raw as bigint, Number(decimals)));
@@ -89,20 +83,17 @@ const usePlugWallet = () => {
   //   [ensureAnonActor]
   // );
 
-  // ---- CONNECT (tanpa memutus sesi lama) ----
   const connect = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const plug = await waitForPlug();
 
-      // Jika belum terhubung, baru minta izin/whitelist
       const already = (await plug.isConnected?.()) === true;
       if (!already) {
         await plug.requestConnect?.({ host: REPLICA_HOST, whitelist: [LEDGER_CANISTER_ID] });
       }
 
-      // Pastikan agent ada (idempotent)
       if (typeof plug.createAgent === "function") {
         await plug.createAgent({ host: REPLICA_HOST, whitelist: [LEDGER_CANISTER_ID] });
       }
@@ -133,16 +124,14 @@ const usePlugWallet = () => {
     }
   }, [fetchBalance]);
 
-  // ---- REHYDRATE saat refresh/mount/focus ----
   const rehydrate = useCallback(async () => {
     if (rehydratingRef.current) return;
     rehydratingRef.current = true;
     try {
       const plug = await waitForPlug();
       const connected = (await plug.isConnected?.()) === true;
-      if (!connected) return; // belum pernah di-approve
+      if (!connected) return;
 
-      // recreate agent (idempotent) agar identity & host siap
       if (typeof plug.createAgent === "function") {
         await plug.createAgent({ host: REPLICA_HOST, whitelist: [LEDGER_CANISTER_ID] });
       }
@@ -155,14 +144,12 @@ const usePlugWallet = () => {
       setPrincipal(p);
       await fetchBalance(p);
     } catch (e) {
-      // cukup log; jangan tampilkan error saat rehydrate
       console.warn("[rehydrate] gagal:", e);
     } finally {
       rehydratingRef.current = false;
     }
   }, [fetchBalance]);
 
-  // mount: coba rehydrate
   useEffect(() => {
     void rehydrate();
     const onVisible = () => {
@@ -184,9 +171,6 @@ const usePlugWallet = () => {
   return { principal, balance, isLoading, error, isConnected: !!principal, connect, disconnect };
 };
 
-// =================================================================
-// Komponen UI
-// =================================================================
 const PlugConnect: React.FC = () => {
   const {
     principal,
