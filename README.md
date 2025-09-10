@@ -155,3 +155,8 @@ dfx canister call voting-app-backend delete_proposal '(1)'
 ```bash
 dfx canister call voting-app-backend get_proposal_by_user_id  '("user")'
 ```
+
+
+
+dfx deploy ledger
+
