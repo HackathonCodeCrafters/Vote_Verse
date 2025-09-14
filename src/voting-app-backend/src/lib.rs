@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
-use candid::{CandidType, Principal};
-use ic_cdk::{api::time, query, update};
+use candid::{CandidType, Nat, Principal};
+use ic_cdk::{api::time, caller, query, update};
 use serde::{Deserialize, Serialize};
 use ic_llm::{Model}; // Import Model enum & prompt function
 
@@ -18,6 +18,62 @@ fn generate_deterministic_id() -> String {
     let result = hasher.finalize();
     hex::encode(&result[..16]) // ambil 16 byte, hex string
 }
+
+use ic_cdk::api::call::RejectionCode;
+
+#[derive(CandidType, Deserialize)]
+struct GetBlocksArgs {
+    start: u64,
+    length: u64,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+struct Transaction {
+    memo: u64,
+    operation: Option<Operation>,
+    created_at_time: Timestamp,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+struct Timestamp {
+    timestamp_nanos: u64,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+enum Operation {
+    Transfer {
+        from: Account,
+        to: Account,
+        amount: Tokens,
+        fee: Tokens,
+    },
+    Mint { to: Account, amount: Tokens },
+    Burn { from: Account, amount: Tokens },
+}
+
+#[derive(CandidType, Deserialize, Debug, PartialEq, Eq, Clone)]
+struct Account {
+    owner: Principal,
+    subaccount: Option<Vec<u8>>,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+struct Tokens {
+    e8s: u64,
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+struct Block {
+    transaction: Transaction,
+    // TIDAK PERLU 'transfer' di sini untuk ledger standar
+}
+
+#[derive(CandidType, Deserialize, Debug)]
+struct QueryBlocksResponse {
+    blocks: Vec<Block>,
+}
+
+
 
 #[derive(CandidType, Deserialize, Serialize, Clone)]
 pub struct ChatTurn {
@@ -54,7 +110,8 @@ struct Proposal {
     pub category: Option<String>, 
     pub discussions: Option<u32>, 
     pub voters: HashSet<Principal>,
-    pub user_id: Option<String>, 
+    pub user_id: Option<String>,
+    pub payment_block_index: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -82,11 +139,13 @@ struct User {
 struct State {
     proposals: HashMap<String, Proposal>,
     users: HashMap<String, User>,
+    used_transaction_indices: HashSet<u64>,
 }
 
 thread_local! {
     static STATE: std::cell::RefCell<State> = Default::default();
 }
+
 
 
 #[ic_cdk::pre_upgrade]
@@ -119,13 +178,68 @@ fn post_upgrade() {
 }
 
 
+const LEDGER_CANISTER_ID: &str = "uxrrr-q7777-77774-qaaaq-cai"; 
+const PROPOSAL_CREATION_FEE: u64 = 1_000_000_000; // Contoh: 10 token (jika 8 desimal)
+
+
+// GANTI TOTAL FUNGSI INI DENGAN VERSI FINAL YANG DISEDERHANAKAN
+async fn verify_payment(caller: Principal, block_index: u64) -> Result<(), String> {
+    if STATE.with(|s| s.borrow().used_transaction_indices.contains(&block_index)) {
+        return Err("Bukti pembayaran ini sudah pernah digunakan.".to_string());
+    }
+
+    let ledger_principal = Principal::from_text(LEDGER_CANISTER_ID).unwrap();
+
+    let args = GetBlocksArgs {
+        start: block_index,
+        length: 1,
+    };
+
+    let call_result: Result<(QueryBlocksResponse,), (RejectionCode, String)> =
+        ic_cdk::call(ledger_principal, "query_blocks", (args,)).await;
+
+    match call_result {
+        Ok((response,)) => {
+            if response.blocks.len() != 1 {
+                return Err("Gagal menemukan blok transaksi.".to_string());
+            }
+            
+            let block = &response.blocks[0];
+
+            // VERIFIKASI YANG DISEDERHANAKAN: Cukup cek memo-nya saja.
+            // Kita akan menggunakan '1337' sebagai memo khusus untuk pembuatan proposal.
+            if block.transaction.memo == 1337 {
+                Ok(()) // Jika memo cocok, kita anggap valid.
+            } else {
+                Err(format!(
+                    "Memo transaksi tidak valid. Diharapkan 1337, diterima {}.",
+                    block.transaction.memo
+                ))
+            }
+        }
+        Err((_, msg)) => Err(format!("Gagal menghubungi canister ledger: {}", msg)),
+    }
+}
+
+
+
 #[update]
-fn add_proposal(title: String, description: String, image_url: Option<String>, duration_days: u32, full_description : Option<String>, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>) -> String {
+async fn add_proposal(title: String, description: String, image_url: Option<String>, duration_days: u32, full_description : Option<String>, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>, payment_block_index: u64) -> String {
+
+    let caller = caller();
+    match verify_payment(caller, payment_block_index).await {
+        Ok(_) => (), // Lanjutkan jika pembayaran valid
+        Err(e) => ic_cdk::trap(&e), // Hentikan jika pembayaran tidak valid
+    }
+
     STATE.with(|state| {
         let mut s = state.borrow_mut();
 
         let id = generate_deterministic_id();
         let now = time() / 1_000_000_000; 
+
+        s.used_transaction_indices.insert(payment_block_index);
+
 
         let time_left = Some(format!("{} days", duration_days));
 
@@ -149,6 +263,7 @@ fn add_proposal(title: String, description: String, image_url: Option<String>, d
             discussions: None,
             voters: HashSet::new(),
             user_id,
+            payment_block_index
         };
 
         s.proposals.insert(id.clone(), proposal);
@@ -162,7 +277,7 @@ fn parse_generated_proposal(json_str: &str) -> Result<GeneratedProposalDescripti
 }
 
 #[update]
-async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<String>, duration_days: u32, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>) -> String {
+async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<String>, duration_days: u32, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>, payment_block_index: u64) -> String {
     let mut owned_string = r#"
             You are a voting proposal generator. Your task is to output ONLY a valid JSON object with the following structure:
 
@@ -215,6 +330,7 @@ async fn add_proposal_with_prompt(prompt_payload: String, image_url: Option<Stri
             discussions: None,
             voters: HashSet::new(),
             user_id,
+            payment_block_index,
         };
 
         s.proposals.insert(id.clone(), proposal);

@@ -23,6 +23,7 @@ type Proposal = record {
   discussions: opt nat32;
   voters: vec principal;
   user_id: opt text;
+  payment_block_index: nat64;
 };
 
 type User = record {
@@ -51,7 +52,7 @@ type ChatTurn = record {
 
 
 service : {
-  add_proposal: (text, text, opt text, nat32, opt text, opt text, opt text, opt text, opt text) -> (text);
+  add_proposal: (text, text, opt text, nat32, opt text, opt text, opt text, opt text, opt text, nat64) -> (text);
   get_proposals: () -> (vec Proposal) query;
   get_proposal_by_id: (text) -> (opt Proposal) query;
   get_proposal_by_user_id: (text) -> (vec Proposal) query;

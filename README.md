@@ -109,7 +109,8 @@ opt "Full Deskripsi",
 opt "Categori",
 opt "iVBORw0KGgoAAAANSUhEUgAABVgAAAFuCAYAAA",
 null,
-opt "user"
+opt "user",
+3
 )'
 
 
@@ -166,3 +167,118 @@ dfx canister call ledger icrc1_transfer '(
     amount = 1_000_000_000 : nat;
   }
 )'
+
+
+
+
+
+## Payment 
+### Langkah 1: Mengumpulkan Informasi Penting
+Sebelum melakukan transaksi, kita perlu mengidentifikasi alamat dan ID dari komponen-komponen yang terlibat.
+
+ID Canister Ledger: Canister yang menangani transaksi. Di lingkungan kita, ID ini terkunci ke testnet Mercury.
+
+```bash
+dfx canister id ledger
+# Contoh Hasil Sesuai Sesi Debugging Kita:
+
+# uxrrr-q7777-77774-qaaaq-cai
+# Account ID Canister Backend: Alamat unik dari canister voting-app-backend kita di ledger. Ini adalah tujuan transfer.
+```
+
+```bash
+
+
+dfx ledger account-id --of-canister voting-app-backend
+# Contoh Hasil Sesuai Sesi Debugging Kita:
+
+# 151982e19fdec075d00ac7ec856ed30edf7393cb8e71a2f04f3ba18467daaaa0
+```
+### Langkah 2: Melakukan Transfer Pembayaran
+Sekarang kita kirimkan token sebagai biaya pembuatan proposal.
+
+Gunakan perintah dfx ledger transfer dengan detail berikut:
+
+Tujuan: Account ID dari Langkah 1.
+
+--amount: Jumlah token (misal: 10).
+
+--memo: Angka unik sebagai penanda. Sesuai logika backend kita, memo ini harus 1337.
+
+--ledger-canister-id: ID Canister Ledger dari Langkah 1.
+
+--fee: Biaya transaksi, harus 0 karena kita mengirim dari akun pencetak (minting account).
+
+```bash
+
+dfx ledger transfer <ACCOUNT_ID_BACKEND> \
+  --amount 10 \
+  --memo 1337 \
+  --ledger-canister-id <ID_LEDGER_ANDA> \
+  --fee 0
+
+```
+Contoh Perintah Sesuai Sesi Debugging Kita:
+
+```Bash
+
+dfx ledger transfer 151982e19fdec075d00ac7ec856ed30edf7393cb8e71a2f04f3ba18467daaaa0 \
+  --amount 10 \
+  --memo 1337 \
+  --ledger-canister-id uxrrr-q7777-77774-qaaaq-cai \
+  --fee 0
+```
+Contoh Hasil Sesuai Sesi Debugging Kita:
+
+
+Transfer sent at block height 1
+CATAT block height INI! Ini adalah bukti pembayaran Anda. Dalam contoh kita, nilainya adalah 1.
+
+Langkah 3: Membuat Proposal dengan Bukti Pembayaran
+Gunakan block height yang didapat dari Langkah 2 sebagai argumen payment_block_index saat memanggil add_proposal.
+
+```Bash
+
+dfx canister call voting-app-backend add_proposal '(
+  "Judul Proposal Anda",
+  "Deskripsi proposal Anda.",
+  null, <Durasi Hari>:nat32, null, null, null, null, null, <BLOCK_HEIGHT_ANDA>:nat64
+)'
+
+```
+Contoh Perintah Sesuai Sesi Debugging Kita:
+
+```bash
+dfx canister call voting-app-backend add_proposal '(
+  "Proposal Ini Akhirnya Berhasil!",
+  "Menggunakan verifikasi yang disederhanakan untuk development.",
+  null, 7:nat32, null, null, null, null, null, 1:nat64
+)'
+```
+Contoh Hasil Sesuai Sesi Debugging Kita:
+
+("bd265249878ce9603ca7b034c6966797")
+Hasil ini adalah ID unik dari proposal yang baru saja Anda buat.
+
+Langkah 4: Verifikasi Hasil
+Untuk memastikan proposal benar-benar tersimpan, panggil fungsi get_proposals (atau get_proposal dengan ID dari Langkah 3).
+
+```bash
+dfx canister call --query voting-app-backend get_proposals '()'
+```
+Contoh Hasil Sesuai Sesi Debugging Kita:
+
+```json
+(
+  vec {
+    record {
+      id = "bd265249878ce9603ca7b034c6966797";
+      status = null;
+      title = "Proposal Ini Akhirnya Berhasil!";
+      time_left = opt "7 days";
+      // ... sisa data proposal ...
+      payment_block_index = 1 : nat64;
+    };
+  },
+)
+```
