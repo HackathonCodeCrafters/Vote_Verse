@@ -3,8 +3,13 @@ import { Principal } from "@dfinity/principal";
 import { Actor, HttpAgent } from "@dfinity/agent";
 import {
   idlFactory as icrc1IdlFactory,
-  canisterId as LEDGER_CANISTER_ID, 
+  canisterId as LEDGER_CANISTER_ID,
 } from "../../../../declarations/ledger";
+
+import {
+  idlFactory as votingAppBackendIdlFactory,
+  canisterId as VOTING_APP_CANISTER_ID,
+} from "../../../../declarations/voting-app-backend";
 
 
 const REPLICA_HOST = "http://localhost:4943";
@@ -36,7 +41,9 @@ const usePlugWallet = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  
+  const [votingActor, setVotingActor] = useState<any | null>(null);
+
+
   const anonActorRef = useRef<any>(null);
   const rehydratingRef = useRef(false);
 
@@ -63,25 +70,13 @@ const usePlugWallet = () => {
         actor.icrc1_decimals(),
         actor.icrc1_balance_of({ owner, subaccount: [] }),
       ]);
-      
+
       console.log('Nilai saldo mentah dari canister:', raw.toString());
 
       setBalance(fmt(raw as bigint, Number(decimals)));
     },
     [ensureAnonActor]
   );
-
-  // const fetchBalance = useCallback(
-  //   async (owner: Principal) => {
-  //     const actor = await ensureAnonActor();
-  //     const [decimals, raw] = await Promise.all([
-  //       actor.icrc1_decimals(),
-  //       actor.icrc1_balance_of({ owner, subaccount: [] }),
-  //     ]);
-  //     setBalance(fmt(raw as bigint, Number(decimals)));
-  //   },
-  //   [ensureAnonActor]
-  // );
 
   const connect = useCallback(async () => {
     setIsLoading(true);
@@ -105,6 +100,19 @@ const usePlugWallet = () => {
 
       setPrincipal(p);
       await fetchBalance(p);
+
+
+      const agent = new HttpAgent({ host: REPLICA_HOST });
+      await agent.fetchRootKey();
+
+      const actor = await plug.createActor({
+        canisterId: VOTING_APP_CANISTER_ID,
+        interfaceFactory: votingAppBackendIdlFactory,
+        agent: agent, // <-- Ini kuncinya
+      });
+
+      setVotingActor(actor);
+
     } catch (e: any) {
       console.error("Proses koneksi gagal:", e);
       if (/Invalid certificate/i.test(String(e?.message))) {
@@ -143,6 +151,22 @@ const usePlugWallet = () => {
 
       setPrincipal(p);
       await fetchBalance(p);
+
+     // --- GANTI DENGAN BLOK INI ---
+      // 1. Buat agent manual yang terpercaya
+      const agent = new HttpAgent({ host: REPLICA_HOST });
+      await agent.fetchRootKey();
+
+      // 2. Suntikkan agent terpercaya kita ke dalam Plug saat membuat actor
+      const actor = await plug.createActor({
+        canisterId: VOTING_APP_CANISTER_ID,
+        interfaceFactory: votingAppBackendIdlFactory,
+        agent: agent, // <-- Ini kuncinya
+      });
+
+      setVotingActor(actor);
+      // -----------------------------
+
     } catch (e) {
       console.warn("[rehydrate] gagal:", e);
     } finally {
@@ -166,9 +190,11 @@ const usePlugWallet = () => {
     setPrincipal(null);
     setBalance("0.000000");
     setError(null);
+    setVotingActor(null);
+
   }, []);
 
-  return { principal, balance, isLoading, error, isConnected: !!principal, connect, disconnect };
+  return { principal, balance, isLoading, error, isConnected: !!principal, connect, disconnect, votingActor};
 };
 
 const PlugConnect: React.FC = () => {
@@ -180,7 +206,54 @@ const PlugConnect: React.FC = () => {
     isConnected,
     connect,
     disconnect,
+    votingActor
   } = usePlugWallet();
+
+
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState('');
+
+const handlePayment = async () => {
+  setIsPaymentLoading(true);
+  setPaymentStatus('Menunggu konfirmasi pembayaran di Plug Wallet...');
+
+  try {
+    const plug = (window as any).ic.plug;
+    if (!plug) throw new Error("Ekstensi Plug Wallet tidak ditemukan.");
+
+
+    const localLedgerActor = await plug.createActor({
+      canisterId: LEDGER_CANISTER_ID,
+      interfaceFactory: icrc1IdlFactory,
+    });
+
+    const paymentAmountE8s = 10_000_000n;
+
+    const canisterPrincipal = Principal.fromText(VOTING_APP_CANISTER_ID);
+
+    const transferResult = await localLedgerActor.icrc1_transfer({
+      to: { owner: canisterPrincipal, subaccount: [] },
+      amount: paymentAmountE8s,
+      fee: [], memo: [], from_subaccount: [], created_at_time: [],
+    });
+
+    if ("Ok" in transferResult) {
+      const blockHeight = transferResult.Ok;
+      setPaymentStatus(`✅ Pembayaran berhasil! Block Height: ${blockHeight}`);
+      console.log("Transaksi berhasil, blockHeight:", blockHeight);
+    } else {
+      const errKey = Object.keys(transferResult.Err)[0];
+      throw new Error(`Transfer gagal: ${errKey}`);
+    }
+  } catch (error: any) {
+    console.error("Pembayaran gagal:", error);
+    setPaymentStatus(`❌ Pembayaran gagal: ${error.message}`);
+  } finally {
+    setIsPaymentLoading(false);
+  }
+};
+
+  // -----------------------------
 
   return (
     <div className="plug-connect-container">
@@ -193,10 +266,28 @@ const PlugConnect: React.FC = () => {
           <h4>Wallet Connected (Local)</h4>
           <p>
             <strong>Principal:</strong> {principal?.toText()}
-          </p>
+            </p>
+            <p>actor </p>
           <p><strong>Balance:</strong> {isLoading ? "Loading..." : `${balance} ICP`}</p>
-          <button onClick={disconnect} className="disconnect-button">Disconnect</button>
+            <button onClick={disconnect} className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">Disconnect</button>
+            
+
+
+
+             <div style={{ marginTop: '20px', borderTop: '1px solid #ccc', paddingTop: '15px' }}>
+            <p>Klik tombol di bawah untuk membayar biaya pembuatan proposal.</p>
+            <button 
+              onClick={handlePayment} 
+              disabled={isPaymentLoading}
+            >
+              {isPaymentLoading ? 'Memproses...' : 'Bayar 0.1 ICP'}
+            </button>
+            {/* Tampilkan pesan status dari proses pembayaran */}
+            {paymentStatus && <p style={{ marginTop: '10px', fontSize: '12px' }}><i>{paymentStatus}</i></p>}
+          </div>
         </div>
+
+          
       )}
       {error && <div style={{ marginTop: 12, color: "#f87171", fontSize: 12 }}>Error: {error}</div>}
     </div>
