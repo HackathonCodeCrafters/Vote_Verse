@@ -181,19 +181,19 @@ fn post_upgrade() {
 const LEDGER_CANISTER_ID: &str = "uxrrr-q7777-77774-qaaaq-cai"; 
 const PROPOSAL_CREATION_FEE: u64 = 1_000_000_000; // Contoh: 10 token (jika 8 desimal)
 
+#[update]
+async fn verify_payment(block_index: u64) -> Result<(), String> {
+    // (opsional) ambil caller kalau mau dipakai
+    let _who = caller();
 
-// GANTI TOTAL FUNGSI INI DENGAN VERSI FINAL YANG DISEDERHANAKAN
-async fn verify_payment(caller: Principal, block_index: u64) -> Result<(), String> {
     if STATE.with(|s| s.borrow().used_transaction_indices.contains(&block_index)) {
         return Err("Bukti pembayaran ini sudah pernah digunakan.".to_string());
     }
 
-    let ledger_principal = Principal::from_text(LEDGER_CANISTER_ID).unwrap();
+    let ledger_principal = Principal::from_text(LEDGER_CANISTER_ID)
+        .map_err(|e| format!("LEDGER_CANISTER_ID invalid: {e}"))?;
 
-    let args = GetBlocksArgs {
-        start: block_index,
-        length: 1,
-    };
+    let args = GetBlocksArgs { start: block_index, length: 1 };
 
     let call_result: Result<(QueryBlocksResponse,), (RejectionCode, String)> =
         ic_cdk::call(ledger_principal, "query_blocks", (args,)).await;
@@ -203,13 +203,11 @@ async fn verify_payment(caller: Principal, block_index: u64) -> Result<(), Strin
             if response.blocks.len() != 1 {
                 return Err("Gagal menemukan blok transaksi.".to_string());
             }
-            
             let block = &response.blocks[0];
 
-            // VERIFIKASI YANG DISEDERHANAKAN: Cukup cek memo-nya saja.
-            // Kita akan menggunakan '1337' sebagai memo khusus untuk pembuatan proposal.
+            // Validasi sederhana via memo
             if block.transaction.memo == 1337 {
-                Ok(()) // Jika memo cocok, kita anggap valid.
+                Ok(())
             } else {
                 Err(format!(
                     "Memo transaksi tidak valid. Diharapkan 1337, diterima {}.",
@@ -227,10 +225,10 @@ async fn verify_payment(caller: Principal, block_index: u64) -> Result<(), Strin
 async fn add_proposal(title: String, description: String, image_url: Option<String>, duration_days: u32, full_description : Option<String>, category: Option<String>, image: Option<String>, author: Option<String>, user_id: Option<String>, payment_block_index: u64) -> String {
 
     let caller = caller();
-    match verify_payment(caller, payment_block_index).await {
-        Ok(_) => (), // Lanjutkan jika pembayaran valid
-        Err(e) => ic_cdk::trap(&e), // Hentikan jika pembayaran tidak valid
-    }
+ match verify_payment(payment_block_index).await {
+         Ok(_) => (),
+         Err(e) => ic_cdk::trap(&e),
+     }
 
     STATE.with(|state| {
         let mut s = state.borrow_mut();

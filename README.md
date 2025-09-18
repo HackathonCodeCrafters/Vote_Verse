@@ -164,7 +164,7 @@ dfx deploy ledger
 dfx canister call ledger icrc1_transfer '(
   record {
     to = record { owner = principal "rbgpx-vzwrd-vfxa5-kphux-ekom3-xoqun-xdlle-5wrve-qwvn4-3bw4e-jqe"; subaccount = null };
-    amount = 1_000_000_000 : nat;
+    amount = 1000_000_000_000 : nat;
   }
 )'
 
@@ -282,3 +282,17 @@ Contoh Hasil Sesuai Sesi Debugging Kita:
   },
 )
 ```
+
+
+dfx canister call uxrrr-q7777-77774-qaaaq-cai icrc1_transfer '(record {
+    to = record {
+        owner = principal "u6s2n-gx777-77774-qaaba-cai";
+        subaccount = null;
+    };
+    amount = 1_000_000_000:nat;
+    fee = null;
+    memo = opt vec { 57; 5; 0; 0; 0; 0; 0; 0 };
+    from_subaccount = null;
+    created_at_time = null;
+})'
+(variant { Ok = 8 : nat })

@@ -65,4 +65,6 @@ service : {
   get_users: () -> (vec User) query;
   get_users_by_id: (text) -> (opt User) query;
   add_proposal_with_prompt:(text, text, nat32, text, text, text, text)-> (text);
+  verify_payment: (nat64) -> (variant { Ok: null; Err: text }) query;
+
 }
