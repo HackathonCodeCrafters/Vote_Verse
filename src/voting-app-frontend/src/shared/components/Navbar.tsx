@@ -23,6 +23,8 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import { PlugWalletButton } from "@/features/wallet/PlugWalletButton";
+import { payProposalFee } from "@/ic/payProposal";
 
 interface AdaptiveNavbarProps {
   darkMode: boolean;
@@ -158,11 +160,10 @@ export default function AdaptiveNavbar({
 
   return (
     <nav
-      className={`sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${
-        darkMode
+      className={`sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300 ${darkMode
           ? "bg-gray-900/80 border-gray-800"
           : "bg-white/80 border-gray-200"
-      }`}
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
@@ -180,11 +181,10 @@ export default function AdaptiveNavbar({
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${
-                    darkMode
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${darkMode
                       ? "text-gray-300 hover:text-white hover:bg-gray-800"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   <IconComponent size={16} />
                   <span className="font-medium">{link.name}</span>
@@ -193,15 +193,14 @@ export default function AdaptiveNavbar({
                 <button
                   key={link.name}
                   onClick={() => handleNavigation(link.href)}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${
-                    isActive
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${isActive
                       ? darkMode
                         ? "bg-gray-800 text-white"
                         : "bg-gray-100 text-gray-900"
                       : darkMode
-                      ? "text-gray-300 hover:text-white hover:bg-gray-800"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
+                        ? "text-gray-300 hover:text-white hover:bg-gray-800"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    }`}
                 >
                   <IconComponent size={16} />
                   <span className="font-medium">{link.name}</span>
@@ -215,11 +214,10 @@ export default function AdaptiveNavbar({
             {/* Dark Mode Toggle */}
             <button
               onClick={toggleDarkMode}
-              className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${
-                darkMode
+              className={`p-2 rounded-lg transition-all duration-200 hover:scale-110 ${darkMode
                   ? "bg-gray-800 text-yellow-400 hover:bg-gray-700"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
+                }`}
             >
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -241,6 +239,13 @@ export default function AdaptiveNavbar({
                 {/*  <div className="w-2 h-2 bg-green-400 rounded-full"></div>*/}
                 {/*  <span className="text-sm font-medium">{votingPower.toLocaleString()} VP</span>*/}
                 {/*</div>*/}
+                <PlugWalletButton
+                  darkMode={darkMode}
+                  isAuthenticated={isAuthenticated}
+                  onPayProposal={async () => {
+                    await payProposalFee(); // ganti kalau kamu punya handler lain
+                  }}
+                />
 
                 {/* Profile Dropdown */}
                 <div className="relative" ref={dropdownRef}>
@@ -248,11 +253,10 @@ export default function AdaptiveNavbar({
                     onClick={() =>
                       setIsProfileDropdownOpen(!isProfileDropdownOpen)
                     }
-                    className={`flex items-center space-x-2 p-2 rounded-lg transition-all duration-200  ${
-                      darkMode
+                    className={`flex items-center space-x-2 p-2 rounded-lg transition-all duration-200  ${darkMode
                         ? "bg-gray-800 text-white hover:bg-gray-700"
                         : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                    }`}
+                      }`}
                   >
                     {/* Custom Avatar */}
                     <div className="relative">
@@ -264,11 +268,10 @@ export default function AdaptiveNavbar({
                         />
                       ) : (
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                            darkMode
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${darkMode
                               ? "bg-gray-600 text-white"
                               : "bg-gray-300 text-gray-700"
-                          }`}
+                            }`}
                         >
                           {getInitials(userName, principal)}
                         </div>
@@ -289,20 +292,18 @@ export default function AdaptiveNavbar({
 
                     <ChevronDown
                       size={16}
-                      className={`transition-transform duration-200 ${
-                        isProfileDropdownOpen ? "rotate-180" : ""
-                      }`}
+                      className={`transition-transform duration-200 ${isProfileDropdownOpen ? "rotate-180" : ""
+                        }`}
                     />
                   </button>
 
                   {/* Dropdown Menu */}
                   {isProfileDropdownOpen && (
                     <div
-                      className={`absolute right-0 mt-2 w-64 rounded-lg shadow-lg border z-50 ${
-                        darkMode
+                      className={`absolute right-0 mt-2 w-64 rounded-lg shadow-lg border z-50 ${darkMode
                           ? "bg-gray-900 border-gray-700"
                           : "bg-white border-gray-200"
-                      }`}
+                        }`}
                     >
                       {/* User Info Header */}
                       <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -315,11 +316,10 @@ export default function AdaptiveNavbar({
                             />
                           ) : (
                             <div
-                              className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
-                                darkMode
+                              className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${darkMode
                                   ? "bg-gray-600 text-white"
                                   : "bg-gray-300 text-gray-700"
-                              }`}
+                                }`}
                             >
                               {getInitials(userName, principal)}
                             </div>
@@ -349,11 +349,10 @@ export default function AdaptiveNavbar({
                       <div className="py-2">
                         <button
                           onClick={() => handleProfileAction("profile")}
-                          className={`w-full flex items-center space-x-3 px-4 py-2 text-sm transition-colors ${
-                            darkMode
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-sm transition-colors ${darkMode
                               ? "text-gray-300 hover:bg-gray-800 hover:text-white"
                               : "text-gray-700 hover:bg-gray-100"
-                          }`}
+                            }`}
                         >
                           <User size={16} />
                           <span>Profile</span>
@@ -361,11 +360,10 @@ export default function AdaptiveNavbar({
 
                         <button
                           onClick={() => handleProfileAction("settings")}
-                          className={`w-full flex items-center space-x-3 px-4 py-2 text-sm transition-colors ${
-                            darkMode
+                          className={`w-full flex items-center space-x-3 px-4 py-2 text-sm transition-colors ${darkMode
                               ? "text-gray-300 hover:bg-gray-800 hover:text-white"
                               : "text-gray-700 hover:bg-gray-100"
-                          }`}
+                            }`}
                         >
                           <Settings size={16} />
                           <span>Settings</span>
@@ -390,11 +388,10 @@ export default function AdaptiveNavbar({
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`md:hidden p-2 rounded-lg ${
-                darkMode
+              className={`md:hidden p-2 rounded-lg ${darkMode
                   ? "text-white hover:bg-gray-800"
                   : "text-gray-900 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -404,9 +401,8 @@ export default function AdaptiveNavbar({
         {/* Mobile Navigation Menu */}
         {isMenuOpen && (
           <div
-            className={`md:hidden border-t ${
-              darkMode ? "border-gray-800" : "border-gray-200"
-            }`}
+            className={`md:hidden border-t ${darkMode ? "border-gray-800" : "border-gray-200"
+              }`}
           >
             <div className="px-2 pt-2 pb-3 space-y-1">
               {navLinks.map((link) => {
@@ -419,11 +415,10 @@ export default function AdaptiveNavbar({
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-left ${
-                      darkMode
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-left ${darkMode
                         ? "text-gray-300 hover:text-white hover:bg-gray-800"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     <IconComponent size={18} />
                     <span className="font-medium">{link.name}</span>
@@ -432,15 +427,14 @@ export default function AdaptiveNavbar({
                   <button
                     key={link.name}
                     onClick={() => handleNavigation(link.href)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-left ${
-                      isActive
+                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-left ${isActive
                         ? darkMode
                           ? "bg-gray-800 text-white"
                           : "bg-gray-100 text-gray-900"
                         : darkMode
-                        ? "text-gray-300 hover:text-white hover:bg-gray-800"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`}
+                          ? "text-gray-300 hover:text-white hover:bg-gray-800"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                      }`}
                   >
                     <IconComponent size={18} />
                     <span className="font-medium">{link.name}</span>

@@ -262,6 +262,7 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
     category?: string;
     image?: string;
     author?: string;
+    payment_block_index?: number | string;
   }) => {
     try {
       const durationDays = Number.parseInt(
@@ -281,7 +282,8 @@ export default function Dashboard({ onCreateProposal }: DashboardProps) {
           ? [proposalData.image_url]
           : ["/placeholder.svg"],
         proposalData.author ? [proposalData.author] : [],
-        []
+        [],
+        BigInt(proposalData.payment_block_index ?? 0) 
       );
 
       console.log("New Proposal created with ID:", proposalId);

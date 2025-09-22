@@ -10,6 +10,12 @@ interface IPlug {
   requestConnect: (config?: { whitelist: string[]; host?: string }) => Promise<void>;
   disconnect: () => Promise<void>;
   // Tambahkan metode lain yang mungkin Anda gunakan
+  getPrincipal?: () => Promise<any>;  // <— tambahkan ini
+  requestBalance?: () => Promise<any>;
+  createActor?: (args: {
+    canisterId: string;
+    interfaceFactory: any;
+  }) => Promise<any>;
 }
 
 // Perluas interface Window global
@@ -22,4 +28,4 @@ declare global {
 }
 
 // Baris ini memastikan file ini diperlakukan sebagai module
-export {};
+export { };
